@@ -1,0 +1,41 @@
+cabal-version:      3.14
+name:               docent
+version:            0.1.0.0
+-- synopsis:
+-- description:
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Patrick Thomson
+maintainer:         patrick.william.thomson@gmail.com
+-- copyright:
+category:           Data
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+-- extra-source-files:
+
+common warnings
+    ghc-options: -Wall -fsimpl-tick-factor=300
+
+library
+    import:           warnings
+    exposed-modules:  Docent.Sum
+                      Docent.Type
+                      Docent.Algebra
+                      Docent.Syntax.StrLit
+                      Docent.Syntax.Prog
+                      Docent.Lang
+    build-depends:    base ^>=4.22.0.0
+                    , text
+                    , bound
+    hs-source-dirs:   src
+    default-language: GHC2024
+
+test-suite docent-test
+    import:           warnings
+    default-language: GHC2024
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          Main.hs
+    build-depends:    base ^>=4.22.0.0
+                    , text
+                    , docent

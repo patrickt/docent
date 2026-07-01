@@ -1,0 +1,6 @@
+cradle:
+  cabal:
+    - path: "test"
+      component: "test:docent-test"
+    - path: "src"
+      component: "lib:docent"
