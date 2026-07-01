@@ -1,10 +1,16 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Docent.Algebra
   ( TypeableF (..)
   , typecheck
   , EqAlg (..)
   , eqTerm
+  , PrettyAlg (..)
+  , pretty
+  , prettyTy
   ) where
+
+import Data.Text (Text)
 
 import Docent.Sum
 import Docent.Type
@@ -39,3 +45,20 @@ instance (EqAlg f, EqAlg g) => EqAlg (f :+: g) where
   eqAlg (InL a) (InL b) = eqAlg a b
   eqAlg (InR a) (InR b) = eqAlg a b
   eqAlg _       _       = False
+
+-- Pretty-printing ------------------------------------------------------------
+
+class PrettyAlg f where
+  prettyAlg :: (PrettyAlg s, HBind s) => [Text] -> f (Term s) Text -> Text
+
+pretty :: (PrettyAlg s, HBind s) => [Text] -> Term s Text -> Text
+pretty _   (Var x) = x
+pretty sup (In t)  = prettyAlg sup t
+
+instance (PrettyAlg f, PrettyAlg g) => PrettyAlg (f :+: g) where
+  prettyAlg sup (InL x) = prettyAlg sup x
+  prettyAlg sup (InR y) = prettyAlg sup y
+
+prettyTy :: Ty -> Text
+prettyTy TString    = "string"
+prettyTy (TFun a b) = "(" <> prettyTy a <> " -> " <> prettyTy b <> ")"

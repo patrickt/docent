@@ -9,7 +9,7 @@ import Docent.Type (Ty (..))
 import Docent.Algebra (typecheck, eqTerm)
 import Docent.Syntax.StrLit (eString, concat_)
 import Docent.Syntax.Prog (lam, app, let_)
-import Docent.Lang (Sig, eval)
+import Docent.Lang (Sig, eval, prettyTop)
 
 check :: IORef Int -> String -> Bool -> IO ()
 check failures name ok =
@@ -44,6 +44,11 @@ main = do
       appProg = app (lam "x" TString (var "x")) (eString "z")
   ck "typecheck app" (typecheck (const (error "free")) appProg == Right TString)
   ck "eval app"      (eqTerm (eval appProg) (eString "z"))
+
+  -- pretty prints (\x:string. x) "z" with a fresh bound name
+  ck "pretty app"
+     (prettyTop (app (lam "x" TString (var "x")) (eString "z"))
+        == "fun (v0 : string). v0 \"z\"")
 
   n <- readIORef failures
   if n == 0 then exitSuccess else exitFailure

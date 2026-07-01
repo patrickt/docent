@@ -2,6 +2,8 @@
 module Docent.Lang
   ( Sig
   , eval
+  , names
+  , prettyTop
   , module Docent.Sum
   , module Docent.Type
   , module Docent.Algebra
@@ -10,6 +12,8 @@ module Docent.Lang
   ) where
 
 import Bound (instantiate1)
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Docent.Sum
 import Docent.Type
@@ -36,3 +40,9 @@ eval (In t)
         _ -> error "eval: App of non-lambda"
   | Just (Let e b) <- prj t = eval (instantiate1 e b)
   | otherwise = error "eval: stuck"
+
+names :: [Text]
+names = [ T.pack ("v" <> show (i :: Int)) | i <- [0 ..] ]
+
+prettyTop :: Term Sig Text -> Text
+prettyTop = pretty names

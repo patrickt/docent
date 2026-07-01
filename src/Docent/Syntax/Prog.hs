@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Docent.Syntax.Prog
   ( LamF (..)
   , lam
@@ -52,3 +53,11 @@ app f x = inject (App f x)
 
 let_ :: (LamF :<: s, HBind s, Eq a) => a -> Term s a -> Term s a -> Term s a
 let_ x e body = inject (Let e (abstract1 x body))
+
+instance PrettyAlg LamF where
+  prettyAlg (n : rest) (Lam ty b) =
+    "fun (" <> n <> " : " <> prettyTy ty <> "). " <> pretty rest (instantiate1 (var n) b)
+  prettyAlg sup (App f x) = pretty sup f <> " " <> pretty sup x
+  prettyAlg (n : rest) (Let e b) =
+    "let " <> n <> " = " <> pretty rest e <> " in " <> pretty rest (instantiate1 (var n) b)
+  prettyAlg [] _ = error "pretty: name supply exhausted"

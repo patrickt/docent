@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Docent.Syntax.StrLit
   ( StrF (..)
   , eString
@@ -38,3 +39,7 @@ eString s = inject (EString s)
 
 concat_ :: (StrF :<: s) => Term s a -> Term s a -> Term s a
 concat_ a b = inject (Concat a b)
+
+instance PrettyAlg StrF where
+  prettyAlg _   (EString s)  = "\"" <> s <> "\""
+  prettyAlg sup (Concat a b) = pretty sup a <> " + " <> pretty sup b
