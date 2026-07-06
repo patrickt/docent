@@ -9,6 +9,7 @@ module Docent.Syntax.Prog
 
 import Bound
 import Bound.Var (unvar)
+import Data.Stream (Stream (..))
 
 import Docent.Sum
 import Docent.Type
@@ -30,8 +31,8 @@ instance TypeableF LamF where
     tx <- typecheck ctx x
     case tf of
       TFun arg res | arg == tx -> Right res
-      TFun _   _               -> Left (TypeError "app: argument type mismatch")
-      _                        -> Left (TypeError "app: not a function")
+      TFun arg _               -> Left (TypeError arg tx)
+      other                    -> Left (TypeError (TFun TString TString) other)
   tcAlg ctx (Lam ty b) = do
     tb <- typecheck (unvar (const ty) ctx) (fromScope b)
     Right (TFun ty tb)
@@ -54,10 +55,9 @@ app f x = inject (App f x)
 let_ :: (LamF :<: s, HBind s, Eq a) => a -> Term s a -> Term s a -> Term s a
 let_ x e body = inject (Let e (abstract1 x body))
 
-instance PrettyAlg LamF where
-  prettyAlg (n : rest) (Lam ty b) =
-    "fun (" <> n <> " : " <> prettyTy ty <> "). " <> pretty rest (instantiate1 (var n) b)
-  prettyAlg sup (App f x) = pretty sup f <> " " <> pretty sup x
-  prettyAlg (n : rest) (Let e b) =
-    "let " <> n <> " = " <> pretty rest e <> " in " <> pretty rest (instantiate1 (var n) b)
-  prettyAlg [] _ = error "pretty: name supply exhausted"
+instance TextShowAlg LamF where
+  textShowAlg (Cons n rest) (Lam ty b) =
+    "fun (" <> n <> " : " <> textShowTy ty <> "). " <> textShow rest (instantiate1 (var n) b)
+  textShowAlg sup (App f x) = textShow sup f <> " " <> textShow sup x
+  textShowAlg (Cons n rest) (Let e b) =
+    "let " <> n <> " = " <> textShow rest e <> " in " <> textShow rest (instantiate1 (var n) b)

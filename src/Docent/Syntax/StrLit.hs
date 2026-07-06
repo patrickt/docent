@@ -27,7 +27,8 @@ instance TypeableF StrF where
     tb <- typecheck ctx b
     case (ta, tb) of
       (TString, TString) -> Right TString
-      _                  -> Left (TypeError "concat: non-string operand")
+      (TString, other)   -> Left (TypeError TString other)
+      (other, _)         -> Left (TypeError TString other)
 
 instance EqAlg StrF where
   eqAlg (EString a)  (EString b)  = a == b
@@ -40,6 +41,6 @@ eString s = inject (EString s)
 concat_ :: (StrF :<: s) => Term s a -> Term s a -> Term s a
 concat_ a b = inject (Concat a b)
 
-instance PrettyAlg StrF where
-  prettyAlg _   (EString s)  = "\"" <> s <> "\""
-  prettyAlg sup (Concat a b) = pretty sup a <> " + " <> pretty sup b
+instance TextShowAlg StrF where
+  textShowAlg _   (EString s)  = "\"" <> s <> "\""
+  textShowAlg sup (Concat a b) = textShow sup a <> " + " <> textShow sup b

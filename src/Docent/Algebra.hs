@@ -5,12 +5,13 @@ module Docent.Algebra
   , typecheck
   , EqAlg (..)
   , eqTerm
-  , PrettyAlg (..)
-  , pretty
-  , prettyTy
+  , TextShowAlg (..)
+  , textShow
+  , textShowTy
   ) where
 
 import Data.Text (Text)
+import Data.Stream (Stream)
 
 import Docent.Sum
 import Docent.Type
@@ -46,19 +47,19 @@ instance (EqAlg f, EqAlg g) => EqAlg (f :+: g) where
   eqAlg (InR a) (InR b) = eqAlg a b
   eqAlg _       _       = False
 
--- Pretty-printing ------------------------------------------------------------
+-- Text decomposition ------------------------------------------------------------
 
-class PrettyAlg f where
-  prettyAlg :: (PrettyAlg s, HBind s) => [Text] -> f (Term s) Text -> Text
+class TextShowAlg f where
+  textShowAlg :: (TextShowAlg s, HBind s) => Stream Text -> f (Term s) Text -> Text
 
-pretty :: (PrettyAlg s, HBind s) => [Text] -> Term s Text -> Text
-pretty _   (Var x) = x
-pretty sup (In t)  = prettyAlg sup t
+textShow :: (TextShowAlg s, HBind s) => Stream Text -> Term s Text -> Text
+textShow _   (Var x) = x
+textShow sup (In t)  = textShowAlg sup t
 
-instance (PrettyAlg f, PrettyAlg g) => PrettyAlg (f :+: g) where
-  prettyAlg sup (InL x) = prettyAlg sup x
-  prettyAlg sup (InR y) = prettyAlg sup y
+instance (TextShowAlg f, TextShowAlg g) => TextShowAlg (f :+: g) where
+  textShowAlg sup (InL x) = textShowAlg sup x
+  textShowAlg sup (InR y) = textShowAlg sup y
 
-prettyTy :: Ty -> Text
-prettyTy TString    = "string"
-prettyTy (TFun a b) = "(" <> prettyTy a <> " -> " <> prettyTy b <> ")"
+textShowTy :: Ty -> Text
+textShowTy TString    = "string"
+textShowTy (TFun a b) = "(" <> textShowTy a <> " -> " <> textShowTy b <> ")"

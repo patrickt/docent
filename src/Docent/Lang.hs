@@ -3,7 +3,7 @@ module Docent.Lang
   ( Sig
   , eval
   , names
-  , prettyTop
+  , textShowTop
   , module Docent.Sum
   , module Docent.Type
   , module Docent.Algebra
@@ -13,7 +13,8 @@ module Docent.Lang
 
 import Bound (instantiate1)
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Stream qualified as Stream
+import Data.Text qualified as T
 
 import Docent.Sum
 import Docent.Type
@@ -41,8 +42,8 @@ eval (In t)
   | Just (Let e b) <- prj t = eval (instantiate1 e b)
   | otherwise = error "eval: stuck"
 
-names :: [Text]
-names = [ T.pack ("v" <> show (i :: Int)) | i <- [0 ..] ]
+names :: Stream.Stream Text
+names = Stream.unfold (\i -> (T.pack ("v" <> show (i :: Int)), succ i)) 0
 
-prettyTop :: Term Sig Text -> Text
-prettyTop = pretty names
+textShowTop :: Term Sig Text -> Text
+textShowTop = textShow names

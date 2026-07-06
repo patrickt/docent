@@ -27,6 +27,8 @@ library
     build-depends:    base ^>=4.22.0.0
                     , text
                     , bound
+                    , prettyprinter
+                    , Stream
     hs-source-dirs:   src
     default-language: GHC2024
 
