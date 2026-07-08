@@ -1,54 +1,102 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
-import Data.IORef
-import System.Exit (exitFailure, exitSuccess)
+import Data.Text (Text)
+import Data.Text qualified as T
+
+import Hedgehog hiding (eval)
+import Hedgehog.Gen qualified as Gen
+import Hedgehog.Range qualified as Range
+import Test.Tasty
+import Test.Tasty.Hedgehog
 
 import Docent.Sum (Term, var)
 import Docent.Type (Ty (..))
 import Docent.Algebra (typecheck, eqTerm)
 import Docent.Syntax.StrLit (eString, concat_)
 import Docent.Syntax.Prog (lam, app, let_)
-import Docent.Lang (Sig, eval, prettyTop)
+import Docent.Lang (Sig, eval, textShowTop)
 
-check :: IORef Int -> String -> Bool -> IO ()
-check failures name ok =
-  if ok then putStrLn ("ok   - " <> name)
-        else modifyIORef' failures (+ 1) >> putStrLn ("FAIL - " <> name)
+genText :: Gen Text
+genText = Gen.text (Range.linear 0 32) Gen.unicode
+
+noFree :: Text -> Ty
+noFree v = error ("unexpected free variable: " <> T.unpack v)
+
+typechecksTo :: Term Sig Text -> Ty -> PropertyT IO ()
+typechecksTo t ty = typecheck noFree t === Right ty
+
+infix 4 ~==
+(~==) :: Term Sig Text -> Term Sig Text -> PropertyT IO ()
+actual ~== expected = do
+  annotate ("expected: " <> T.unpack (textShowTop expected))
+  annotate ("actual:   " <> T.unpack (textShowTop actual))
+  assert (eqTerm actual expected)
+
+prop_typecheckString :: Property
+prop_typecheckString = property $ do
+  s <- forAll genText
+  eString s `typechecksTo` TString
+
+prop_evalString :: Property
+prop_evalString = property $ do
+  s <- forAll genText
+  eval (eString s) === eString s
+
+prop_evalConcat :: Property
+prop_evalConcat = property $ do
+  a <- forAll genText
+  b <- forAll genText
+  eval (concat_ (eString a) (eString b)) ~== eString (a <> b)
+
+-- let x = a in x + (b + x)
+letProg :: Text -> Text -> Term Sig Text
+letProg a b = let_ "x" (eString a) (concat_ (var "x") (concat_ (eString b) (var "x")))
+
+prop_typecheckLet :: Property
+prop_typecheckLet = property $ do
+  a <- forAll genText
+  b <- forAll genText
+  letProg a b `typechecksTo` TString
+
+prop_evalLet :: Property
+prop_evalLet = property $ do
+  a <- forAll genText
+  b <- forAll genText
+  eval (letProg a b) === eString (a <> b <> a)
+
+-- (\x:string. x) s
+appProg :: Text -> Term Sig Text
+appProg s = app (lam "x" TString (var "x")) (eString s)
+
+prop_typecheckApp :: Property
+prop_typecheckApp = property $ do
+  s <- forAll genText
+  appProg s `typechecksTo` TString
+
+prop_evalApp :: Property
+prop_evalApp = property $ do
+  s <- forAll genText
+  eval (appProg s) === eString s
+
+prop_textShowApp :: Property
+prop_textShowApp = withTests 1 . property $
+  textShowTop (appProg "z") === "fun (v0 : string). v0 \"z\""
 
 main :: IO ()
-main = do
-  failures <- newIORef (0 :: Int)
-  let ck = check failures
-
-  -- typecheck of a string literal is TString
-  ck "typecheck EString" (typecheck (const (error "free")) (eString "sup" :: Term Sig String) == Right TString)
-
-  -- eval of a string literal is itself
-  ck "eval EString" (eqTerm (eval (eString "sup")) (eString "sup" :: Term Sig String))
-
-  -- eval of concat concatenates
-  ck "eval Concat"
-     (eqTerm (eval (concat_ (eString "hello") (eString " world")))
-             (eString "hello world" :: Term Sig String))
-
-  -- let x = "a" in x + ("b" + x)  typechecks to TString and evals to "aba"
-  let letProg :: Term Sig String
-      letProg = let_ "x" (eString "a")
-                     (concat_ (var "x") (concat_ (eString "b") (var "x")))
-  ck "typecheck let" (typecheck (const (error "free")) letProg == Right TString)
-  ck "eval let"      (eqTerm (eval letProg) (eString "aba"))
-
-  -- (\x:string. x) "z"  typechecks to TString and evals to "z"
-  let appProg :: Term Sig String
-      appProg = app (lam "x" TString (var "x")) (eString "z")
-  ck "typecheck app" (typecheck (const (error "free")) appProg == Right TString)
-  ck "eval app"      (eqTerm (eval appProg) (eString "z"))
-
-  -- pretty prints (\x:string. x) "z" with a fresh bound name
-  ck "pretty app"
-     (prettyTop (app (lam "x" TString (var "x")) (eString "z"))
-        == "fun (v0 : string). v0 \"z\"")
-
-  n <- readIORef failures
-  if n == 0 then exitSuccess else exitFailure
+main = defaultMain $ testGroup "docent"
+  [ testGroup "typecheck"
+      [ testPropertyNamed "string literal is TString" "prop_typecheckString" prop_typecheckString
+      , testPropertyNamed "let-bound concat is TString" "prop_typecheckLet" prop_typecheckLet
+      , testPropertyNamed "identity application is TString" "prop_typecheckApp" prop_typecheckApp
+      ]
+  , testGroup "eval"
+      [ testPropertyNamed "string literal is a value" "prop_evalString" prop_evalString
+      , testPropertyNamed "concat concatenates" "prop_evalConcat" prop_evalConcat
+      , testPropertyNamed "let substitutes" "prop_evalLet" prop_evalLet
+      , testPropertyNamed "beta reduction" "prop_evalApp" prop_evalApp
+      ]
+  , testGroup "textShow"
+      [ testPropertyNamed "freshens bound names" "prop_textShowApp" prop_textShowApp
+      ]
+  ]
