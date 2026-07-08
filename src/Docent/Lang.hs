@@ -4,7 +4,7 @@ module Docent.Lang
   ( Sig
   , eval
   , names
-  , textShowTop
+  , renderTop
   , module Docent.Sum
   , module Docent.Type
   , module Docent.Algebra
@@ -18,6 +18,8 @@ import Data.Stream qualified as Stream
 import Data.Text qualified as T
 import Data.Map.Ordered (OMap)
 import Data.Map.Ordered qualified as Map
+import Prettyprinter (defaultLayoutOptions, layoutPretty)
+import Prettyprinter.Render.Text (renderStrict)
 
 import Docent.Ident (Ident)
 import Docent.Ident qualified as Ident
@@ -57,5 +59,5 @@ eval (In t)
 names :: Stream.Stream Ident
 names = Stream.unfold (\i -> (Ident.fromText (T.pack ("v" <> show (i :: Int))), succ i)) 0
 
-textShowTop :: Term Sig Ident -> Text
-textShowTop = textShow names
+renderTop :: Term Sig Ident -> Text
+renderTop = renderStrict . layoutPretty defaultLayoutOptions . prettyTerm names

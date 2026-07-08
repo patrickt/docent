@@ -6,12 +6,12 @@ module Docent.Syntax.Record
   ) where
 
 import Data.Foldable hiding (toList)
-import Data.Text qualified as T
 import Data.Map.Ordered (OMap)
 import Data.Map.Ordered qualified as Map
+import Prettyprinter (Pretty (..), (<+>))
+import Prettyprinter qualified as P
 
 import Docent.Ident (Ident)
-import Docent.Ident qualified as Ident
 import Docent.Sum
 import Docent.Type
 import Docent.Algebra
@@ -40,7 +40,7 @@ instance EqAlg RecF where
     let aFields = Map.assocs as
     let bFields = Map.assocs bs
     let go (n, t) (n', t') = n == n' && eqTerm t t'
-    all id (zipWith go aFields bFields)
+    length aFields == length bFields && all id (zipWith go aFields bFields)
   eqAlg (Project a f) (Project b g) = eqTerm a b && f == g
   eqAlg _ _ = False
 
@@ -50,7 +50,7 @@ record fields = inject (Record (Map.fromList (toList fields)))
 project :: (RecF :<: s) => Term s a -> Ident -> Term s a
 project t f = inject (Project t f)
 
-instance TextShowAlg RecF where
-  textShowAlg sup (Record fields) =
-    "{" <> T.intercalate ", " [Ident.toText n <> " = " <> textShow sup t | (n, t) <- Map.assocs fields] <> "}"
-  textShowAlg sup (Project t f) = textShow sup t <> "." <> Ident.toText f
+instance PrettyAlg RecF where
+  prettyAlg sup (Record fields) =
+    P.braces (P.hsep (P.punctuate "," [pretty n <+> "=" <+> prettyTerm sup t | (n, t) <- Map.assocs fields]))
+  prettyAlg sup (Project t f) = prettyTerm sup t <> "." <> pretty f

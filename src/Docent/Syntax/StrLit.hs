@@ -7,6 +7,8 @@ module Docent.Syntax.StrLit
   ) where
 
 import Data.Text (Text)
+import Prettyprinter (Pretty (..), (<+>))
+import Prettyprinter qualified as P
 
 import Docent.Sum
 import Docent.Type
@@ -41,6 +43,6 @@ eString s = inject (EString s)
 concat_ :: (StrF :<: s) => Term s a -> Term s a -> Term s a
 concat_ a b = inject (Concat a b)
 
-instance TextShowAlg StrF where
-  textShowAlg _   (EString s)  = "\"" <> s <> "\""
-  textShowAlg sup (Concat a b) = textShow sup a <> " + " <> textShow sup b
+instance PrettyAlg StrF where
+  prettyAlg _   (EString s)  = P.dquotes (pretty s)
+  prettyAlg sup (Concat a b) = prettyTerm sup a <+> "+" <+> prettyTerm sup b

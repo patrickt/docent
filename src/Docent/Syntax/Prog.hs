@@ -10,8 +10,9 @@ module Docent.Syntax.Prog
 import Bound
 import Bound.Var (unvar)
 import Data.Stream (Stream (..))
+import Prettyprinter (Pretty (..), (<+>))
+import Prettyprinter qualified as P
 
-import Docent.Ident qualified as Ident
 import Docent.Sum
 import Docent.Type
 import Docent.Algebra
@@ -56,9 +57,9 @@ app f x = inject (App f x)
 let_ :: (LamF :<: s, HBind s, Eq a) => a -> Term s a -> Term s a -> Term s a
 let_ x e body = inject (Let e (abstract1 x body))
 
-instance TextShowAlg LamF where
-  textShowAlg (Cons n rest) (Lam ty b) =
-    "fun (" <> Ident.toText n <> " : " <> textShowTy ty <> "). " <> textShow rest (instantiate1 (var n) b)
-  textShowAlg sup (App f x) = textShow sup f <> " " <> textShow sup x
-  textShowAlg (Cons n rest) (Let e b) =
-    "let " <> Ident.toText n <> " = " <> textShow rest e <> " in " <> textShow rest (instantiate1 (var n) b)
+instance PrettyAlg LamF where
+  prettyAlg (Cons n rest) (Lam ty b) =
+    "fun" <+> P.parens (pretty n <+> ":" <+> pretty ty) <> "." <+> prettyTerm rest (instantiate1 (var n) b)
+  prettyAlg sup (App f x) = prettyTerm sup f <+> prettyTerm sup x
+  prettyAlg (Cons n rest) (Let e b) =
+    "let" <+> pretty n <+> "=" <+> prettyTerm rest e <+> "in" <+> prettyTerm rest (instantiate1 (var n) b)
