@@ -10,6 +10,8 @@ import Hedgehog.Range qualified as Range
 import Test.Tasty
 import Test.Tasty.Hedgehog
 
+import Docent.Ident (Ident)
+import Docent.Ident qualified as Ident
 import Docent.Sum (Term, var)
 import Docent.Type (Ty (..))
 import Docent.Algebra (typecheck, eqTerm)
@@ -20,14 +22,14 @@ import Docent.Lang (Sig, eval, textShowTop)
 genText :: Gen Text
 genText = Gen.text (Range.linear 0 32) Gen.unicode
 
-noFree :: Text -> Ty
-noFree v = error ("unexpected free variable: " <> T.unpack v)
+noFree :: Ident -> Ty
+noFree v = error ("unexpected free variable: " <> Ident.toString v)
 
-typechecksTo :: Term Sig Text -> Ty -> PropertyT IO ()
+typechecksTo :: Term Sig Ident -> Ty -> PropertyT IO ()
 typechecksTo t ty = typecheck noFree t === Right ty
 
 infix 4 ~==
-(~==) :: Term Sig Text -> Term Sig Text -> PropertyT IO ()
+(~==) :: Term Sig Ident -> Term Sig Ident -> PropertyT IO ()
 actual ~== expected = do
   annotate ("expected: " <> T.unpack (textShowTop expected))
   annotate ("actual:   " <> T.unpack (textShowTop actual))
@@ -41,7 +43,7 @@ prop_typecheckString = property $ do
 prop_evalString :: Property
 prop_evalString = property $ do
   s <- forAll genText
-  eval (eString s) === eString s
+  eval (eString s) ~== eString s
 
 prop_evalConcat :: Property
 prop_evalConcat = property $ do
@@ -50,7 +52,7 @@ prop_evalConcat = property $ do
   eval (concat_ (eString a) (eString b)) ~== eString (a <> b)
 
 -- let x = a in x + (b + x)
-letProg :: Text -> Text -> Term Sig Text
+letProg :: Text -> Text -> Term Sig Ident
 letProg a b = let_ "x" (eString a) (concat_ (var "x") (concat_ (eString b) (var "x")))
 
 prop_typecheckLet :: Property
@@ -63,10 +65,10 @@ prop_evalLet :: Property
 prop_evalLet = property $ do
   a <- forAll genText
   b <- forAll genText
-  eval (letProg a b) === eString (a <> b <> a)
+  eval (letProg a b) ~== eString (a <> b <> a)
 
 -- (\x:string. x) s
-appProg :: Text -> Term Sig Text
+appProg :: Text -> Term Sig Ident
 appProg s = app (lam "x" TString (var "x")) (eString s)
 
 prop_typecheckApp :: Property
@@ -77,7 +79,7 @@ prop_typecheckApp = property $ do
 prop_evalApp :: Property
 prop_evalApp = property $ do
   s <- forAll genText
-  eval (appProg s) === eString s
+  eval (appProg s) ~== eString s
 
 prop_textShowApp :: Property
 prop_textShowApp = withTests 1 . property $

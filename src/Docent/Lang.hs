@@ -16,14 +16,19 @@ import Bound (instantiate1)
 import Data.Text (Text)
 import Data.Stream qualified as Stream
 import Data.Text qualified as T
+import Data.Map.Ordered (OMap)
+import Data.Map.Ordered qualified as Map
 
+import Docent.Ident (Ident)
+import Docent.Ident qualified as Ident
 import Docent.Sum
 import Docent.Type
 import Docent.Algebra
 import Docent.Syntax.StrLit
 import Docent.Syntax.Prog
+import Docent.Syntax.Record
 
-type Sig = StrF :+: LamF
+type Sig = StrF :+: LamF :+: RecF
 
 eval :: Term Sig a -> Term Sig a
 eval (Var a) = Var a
@@ -41,10 +46,16 @@ eval (In t)
         In u | Just (Lam _ b) <- prj u -> eval (instantiate1 (eval x) b)
         _ -> error "eval: App of non-lambda"
   | Just (Let e b) <- prj t = eval (instantiate1 e b)
+  | Just (Record _) <- prj t = In t
+  | Just (Project rec_ f) <- prj t =
+      case (eval rec_) of
+        In u | Just (Record rs) <- prj u, Just field <- Map.lookup f rs -> eval field
+        In u | Just (Record rs) <- prj u, Nothing <- Map.lookup f rs -> error "no such field"
+        _ -> error "eval: project on non-record"
   | otherwise = error "eval: stuck"
 
-names :: Stream.Stream Text
-names = Stream.unfold (\i -> (T.pack ("v" <> show (i :: Int)), succ i)) 0
+names :: Stream.Stream Ident
+names = Stream.unfold (\i -> (Ident.fromText (T.pack ("v" <> show (i :: Int))), succ i)) 0
 
-textShowTop :: Term Sig Text -> Text
+textShowTop :: Term Sig Ident -> Text
 textShowTop = textShow names

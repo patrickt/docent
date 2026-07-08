@@ -11,6 +11,7 @@ import Bound
 import Bound.Var (unvar)
 import Data.Stream (Stream (..))
 
+import Docent.Ident qualified as Ident
 import Docent.Sum
 import Docent.Type
 import Docent.Algebra
@@ -57,7 +58,7 @@ let_ x e body = inject (Let e (abstract1 x body))
 
 instance TextShowAlg LamF where
   textShowAlg (Cons n rest) (Lam ty b) =
-    "fun (" <> n <> " : " <> textShowTy ty <> "). " <> textShow rest (instantiate1 (var n) b)
+    "fun (" <> Ident.toText n <> " : " <> textShowTy ty <> "). " <> textShow rest (instantiate1 (var n) b)
   textShowAlg sup (App f x) = textShow sup f <> " " <> textShow sup x
   textShowAlg (Cons n rest) (Let e b) =
-    "let " <> n <> " = " <> textShow rest e <> " in " <> textShow rest (instantiate1 (var n) b)
+    "let " <> Ident.toText n <> " = " <> textShow rest e <> " in " <> textShow rest (instantiate1 (var n) b)

@@ -2,14 +2,24 @@
 
 module Docent.Type (Ty (..), TypeError (..)) where
 
-import Prettyprinter
+import Prettyprinter (Pretty (..), (<+>))
+import Prettyprinter qualified as P
+import Data.Map.Ordered (OMap)
+import Data.Map.Ordered qualified as Map
 
-data Ty = TString | TFun Ty Ty
+import Docent.Ident
+
+data Ty = TString | TFun Ty Ty | TRecord (OMap Ident Ty)
   deriving (Eq, Show)
 
 instance Pretty Ty where
   pretty TString = "string"
-  pretty (TFun from to) = parens (pretty from <+> " → " <+> pretty to)
+  pretty (TFun from to) = P.parens (pretty from <+> " → " <+> pretty to)
+  pretty (TRecord fields) =
+    P.braces . P.vsep . P.punctuate "," . fmap (uncurry hasType) . Map.assocs $ fields
+
+hasType :: Ident -> Ty -> P.Doc ann
+hasType name ty = pretty name <+> ":" <+> pretty ty
 
 data TypeError = TypeError Ty Ty -- expected, got
   deriving (Eq, Show)

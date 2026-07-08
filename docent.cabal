@@ -17,20 +17,24 @@ common shared
     default-language: GHC2024
     ghc-options: -Wall -fsimpl-tick-factor=300
     build-depends:   base ^>= 4.22
+                   , intern
                    , text
                    , fused-effects
 
 
 library
     import:           shared
-    exposed-modules:  Docent.Sum
+    exposed-modules:  Docent.Ident
+                      Docent.Sum
                       Docent.Type
                       Docent.Algebra
                       Docent.Syntax.StrLit
                       Docent.Syntax.Prog
+                      Docent.Syntax.Record
                       Docent.Lang
     build-depends:    Stream
                     , bound
+                    , ordered-containers
                     , prettyprinter
     hs-source-dirs:   src
 

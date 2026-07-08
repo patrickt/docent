@@ -11,8 +11,12 @@ module Docent.Algebra
   ) where
 
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Stream (Stream)
+import Data.Map.Ordered qualified as Map
 
+import Docent.Ident (Ident)
+import Docent.Ident qualified as Ident
 import Docent.Sum
 import Docent.Type
 
@@ -50,10 +54,10 @@ instance (EqAlg f, EqAlg g) => EqAlg (f :+: g) where
 -- Text decomposition ------------------------------------------------------------
 
 class TextShowAlg f where
-  textShowAlg :: (TextShowAlg s, HBind s) => Stream Text -> f (Term s) Text -> Text
+  textShowAlg :: (TextShowAlg s, HBind s) => Stream Ident -> f (Term s) Ident -> Text
 
-textShow :: (TextShowAlg s, HBind s) => Stream Text -> Term s Text -> Text
-textShow _   (Var x) = x
+textShow :: (TextShowAlg s, HBind s) => Stream Ident -> Term s Ident -> Text
+textShow _   (Var x) = Ident.toText x
 textShow sup (In t)  = textShowAlg sup t
 
 instance (TextShowAlg f, TextShowAlg g) => TextShowAlg (f :+: g) where
@@ -61,5 +65,7 @@ instance (TextShowAlg f, TextShowAlg g) => TextShowAlg (f :+: g) where
   textShowAlg sup (InR y) = textShowAlg sup y
 
 textShowTy :: Ty -> Text
-textShowTy TString    = "string"
-textShowTy (TFun a b) = "(" <> textShowTy a <> " -> " <> textShowTy b <> ")"
+textShowTy TString      = "string"
+textShowTy (TFun a b)   = "(" <> textShowTy a <> " -> " <> textShowTy b <> ")"
+textShowTy (TRecord fs) =
+  "{" <> T.intercalate ", " [Ident.toText n <> " : " <> textShowTy t | (n, t) <- Map.assocs fs] <> "}"
