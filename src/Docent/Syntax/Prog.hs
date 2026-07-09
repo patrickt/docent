@@ -22,6 +22,13 @@ data LamF t a
   | App (t a) (t a)
   | Let (t a) (Scope () t a)
 
+instance PrettyAlg LamF where
+  prettyAlg (Cons n rest) (Lam ty b) =
+    "fun" <+> P.parens (pretty n <+> ":" <+> pretty ty) <> "." <+> prettyTerm rest (instantiate1 (var n) b)
+  prettyAlg sup (App f x) = prettyTerm sup f <+> prettyTerm sup x
+  prettyAlg (Cons n rest) (Let e b) =
+    "let" <+> pretty n <+> "=" <+> prettyTerm rest e <+> "in" <+> prettyTerm rest (instantiate1 (var n) b)
+
 instance HBind LamF where
   hbind k (Lam ty b) = Lam ty (b >>>= k)
   hbind k (App f x)  = App (f >>= k) (x >>= k)
@@ -56,10 +63,3 @@ app f x = inject (App f x)
 
 let_ :: (LamF :<: s, HBind s, Eq a) => a -> Term s a -> Term s a -> Term s a
 let_ x e body = inject (Let e (abstract1 x body))
-
-instance PrettyAlg LamF where
-  prettyAlg (Cons n rest) (Lam ty b) =
-    "fun" <+> P.parens (pretty n <+> ":" <+> pretty ty) <> "." <+> prettyTerm rest (instantiate1 (var n) b)
-  prettyAlg sup (App f x) = prettyTerm sup f <+> prettyTerm sup x
-  prettyAlg (Cons n rest) (Let e b) =
-    "let" <+> pretty n <+> "=" <+> prettyTerm rest e <+> "in" <+> prettyTerm rest (instantiate1 (var n) b)

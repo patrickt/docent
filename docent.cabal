@@ -31,6 +31,7 @@ library
                       Docent.Syntax.StrLit
                       Docent.Syntax.Prog
                       Docent.Syntax.Record
+                      Docent.Syntax.Variant
                       Docent.Lang
     build-depends:    Stream
                     , bound
