@@ -28,6 +28,7 @@ library
                       Docent.Sum
                       Docent.Type
                       Docent.Algebra
+                      Docent.Syntax.Fixpoint
                       Docent.Syntax.StrLit
                       Docent.Syntax.Prog
                       Docent.Syntax.Record

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Docent.Type (Ty (..), TypeError (..)) where
+module Docent.Type (Ty (..), TypeError (..), hasType) where
 
 import Prettyprinter (Pretty (..), (<+>))
 import Prettyprinter qualified as P
@@ -22,7 +22,7 @@ instance Pretty Ty where
   pretty (TRecord fields) =
     P.braces . P.vsep . P.punctuate "," . fmap (uncurry hasType) . OMap.assocs $ fields
   pretty (TVariant fields) =
-    P.brackets . P.vsep . P.punctuate "|" . fmap (uncurry hasType) . OMap.assocs $ fields
+    P.angles . P.vsep . P.punctuate "|" . fmap (uncurry hasType) . OMap.assocs $ fields
 
 hasType :: Ident -> Ty -> P.Doc ann
 hasType name ty = pretty name <+> ":" <+> pretty ty

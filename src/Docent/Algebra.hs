@@ -7,6 +7,7 @@ module Docent.Algebra
   , eqTerm
   , PrettyAlg (..)
   , prettyTerm
+  , hasType
   ) where
 
 import Data.Stream (Stream)

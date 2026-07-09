@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Docent.Syntax.Variant
   ( VntF (..)
+  , Branch (..)
   , inject_
   , case_
   ) where
@@ -46,7 +47,7 @@ instance TypeableF VntF where
                           given <- typecheck ctx expr
                           if given == found
                             then pure ty
-                            else Left (TypeError given found)
+                            else Left (TypeError found given)
       other -> Left (TypeError other ty)
 
   tcAlg ctx (Case term branches) = do
