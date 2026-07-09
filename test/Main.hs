@@ -7,7 +7,7 @@ import Data.Map.Ordered qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 
-import Hedgehog hiding (eval)
+import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
 import Test.Tasty
@@ -21,7 +21,7 @@ import Docent.Algebra (typecheck, eqTerm)
 import Docent.Syntax.StrLit (eString, concat_)
 import Docent.Syntax.Prog (lam, app, let_)
 import Docent.Syntax.Record (record, project)
-import Docent.Lang (Sig, eval, renderTop)
+import Docent.Lang (Sig, EvalError (..), runEval, renderTop)
 
 genText :: Gen Text
 genText = Gen.text (Range.linear 0 32) Gen.unicode
@@ -39,6 +39,16 @@ actual ~== expected = do
   annotate ("actual:   " <> T.unpack (renderTop actual))
   assert (eqTerm actual expected)
 
+evalsTo :: Term Sig Ident -> Term Sig Ident -> PropertyT IO ()
+evalsTo t expected = case runEval t of
+  Left err -> annotateShow err *> failure
+  Right actual -> actual ~== expected
+
+evalFailsWith :: Term Sig Ident -> EvalError -> PropertyT IO ()
+evalFailsWith t err = case runEval t of
+  Left e -> e === err
+  Right v -> annotate ("evaluated to: " <> T.unpack (renderTop v)) *> failure
+
 prop_typecheckString :: Property
 prop_typecheckString = property $ do
   s <- forAll genText
@@ -47,13 +57,13 @@ prop_typecheckString = property $ do
 prop_evalString :: Property
 prop_evalString = property $ do
   s <- forAll genText
-  eval (eString s) ~== eString s
+  eString s `evalsTo` eString s
 
 prop_evalConcat :: Property
 prop_evalConcat = property $ do
   a <- forAll genText
   b <- forAll genText
-  eval (concat_ (eString a) (eString b)) ~== eString (a <> b)
+  concat_ (eString a) (eString b) `evalsTo` eString (a <> b)
 
 -- let x = a in x + (b + x)
 letProg :: Text -> Text -> Term Sig Ident
@@ -69,7 +79,7 @@ prop_evalLet :: Property
 prop_evalLet = property $ do
   a <- forAll genText
   b <- forAll genText
-  eval (letProg a b) ~== eString (a <> b <> a)
+  letProg a b `evalsTo` eString (a <> b <> a)
 
 -- (\x:string. x) s
 appProg :: Text -> Term Sig Ident
@@ -83,7 +93,20 @@ prop_typecheckApp = property $ do
 prop_evalApp :: Property
 prop_evalApp = property $ do
   s <- forAll genText
-  eval (appProg s) ~== eString s
+  appProg s `evalsTo` eString s
+
+prop_evalNonFunction :: Property
+prop_evalNonFunction = property $ do
+  a <- forAll genText
+  b <- forAll genText
+  app (eString a) (eString b) `evalFailsWith` NonFunctionApplication
+
+prop_evalMissingField :: Property
+prop_evalMissingField = property $ do
+  names <- forAll genFieldNames
+  missing <- forAll (Gen.filter (`notElem` names) genIdent)
+  let fields = [(n, eString (Ident.toText n)) | n <- names]
+  project (record fields) missing `evalFailsWith` MissingField missing
 
 prop_renderApp :: Property
 prop_renderApp = withTests 1 . property $
@@ -126,7 +149,7 @@ prop_evalRecord = property $ do
   names <- forAll genFieldNames
   vals <- forAll (Gen.list (Range.singleton (length names)) genText)
   let fields = zipWith (\n v -> (n, eString v)) names vals
-  eval (record fields) ~== record fields
+  record fields `evalsTo` record fields
 
 prop_evalProject :: Property
 prop_evalProject = property $ do
@@ -134,14 +157,14 @@ prop_evalProject = property $ do
   vals <- forAll (Gen.list (Range.singleton (length names)) genText)
   (target, expected) <- forAll (Gen.element (zip names vals))
   let fields = zipWith (\n v -> (n, eString v)) names vals
-  eval (project (record fields) target) ~== eString expected
+  project (record fields) target `evalsTo` eString expected
 
 prop_projectForcesField :: Property
 prop_projectForcesField = property $ do
   n <- forAll genIdent
   a <- forAll genText
   b <- forAll genText
-  eval (project (record [(n, concat_ (eString a) (eString b))]) n) ~== eString (a <> b)
+  project (record [(n, concat_ (eString a) (eString b))]) n `evalsTo` eString (a <> b)
 
 prop_recordEqWidth :: Property
 prop_recordEqWidth = property $ do
@@ -174,6 +197,8 @@ main = defaultMain $ testGroup "docent"
       , testPropertyNamed "concat concatenates" "prop_evalConcat" prop_evalConcat
       , testPropertyNamed "let substitutes" "prop_evalLet" prop_evalLet
       , testPropertyNamed "beta reduction" "prop_evalApp" prop_evalApp
+      , testPropertyNamed "applying a non-function is an error" "prop_evalNonFunction" prop_evalNonFunction
+      , testPropertyNamed "projecting a missing field is an error" "prop_evalMissingField" prop_evalMissingField
       ]
   , testGroup "rendering"
       [ testPropertyNamed "freshens bound names" "prop_renderApp" prop_renderApp

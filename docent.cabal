@@ -37,6 +37,8 @@ library
     build-depends:    Stream
                     , bound
                     , ordered-containers
+                    , optics
+                    , optics-th
                     , prettyprinter
     hs-source-dirs:   src
 
