@@ -20,8 +20,10 @@ import Docent.Type (Ty (..), exists_, forall_, mu_, renderTy)
 import Docent.Algebra (eqTerm)
 import Docent.Syntax.StrLit (eString, concat_)
 import Docent.Syntax.Prog (lam, app, let_)
+import Docent.Stdlib qualified as Std
 import Docent.Syntax.Existential (pack_, unpack_)
 import Docent.Syntax.Mu (fold_, unfold_)
+import Docent.Syntax.Universal (tyApp, tyLam)
 import Docent.Syntax.Record (record, project)
 import Docent.Syntax.Variant (inject_)
 import Docent.Typecheck (runTypecheck)
@@ -167,6 +169,60 @@ prop_evalUnpackNonPack = property $ do
   s <- forAll genText
   unpack_ "x" "a" (eString s) (var "x") `evalFailsWith` NonPackUnpack
 
+prop_typecheckTyLam :: Property
+prop_typecheckTyLam = withTests 1 . property $
+  tyLam "a" (lam "x" (TVar "a") (var "x")) `typechecksTo` forall_ "b" (TFun (TVar "b") (TVar "b"))
+
+prop_evalTyApp :: Property
+prop_evalTyApp = property $ do
+  s <- forAll genText
+  app (tyApp (tyLam "a" (lam "x" (TVar "a") (var "x"))) TString) (eString s) `evalsTo` eString s
+
+prop_evalTyAppNonTyLam :: Property
+prop_evalTyAppNonTyLam = property $ do
+  s <- forAll genText
+  tyApp (eString s) TString `evalFailsWith` NonTypeAbstraction
+
+strs :: [Text] -> Term Sig Ident
+strs = foldr (Std.cons TString . eString) (Std.nil TString)
+
+prop_stdlibTypes :: Property
+prop_stdlibTypes = withTests 1 . property $ do
+  Std.join `typechecksTo` TFun (Std.list TString) TString
+  Std.map_ `typechecksTo`
+    forall_ "a" (forall_ "b"
+      (TFun (TFun (TVar "a") (TVar "b")) (TFun (Std.list (TVar "a")) (Std.list (TVar "b")))))
+  Std.append `typechecksTo`
+    forall_ "a" (TFun (Std.list (TVar "a")) (TFun (Std.list (TVar "a")) (Std.list (TVar "a"))))
+  Std.flatten `typechecksTo`
+    forall_ "a" (TFun (Std.list (Std.list (TVar "a"))) (Std.list (TVar "a")))
+
+prop_stdlibJoin :: Property
+prop_stdlibJoin = property $ do
+  ss <- forAll (Gen.list (Range.linear 0 5) genText)
+  app Std.join (strs ss) `evalsTo` eString (mconcat ss)
+
+prop_stdlibAppend :: Property
+prop_stdlibAppend = property $ do
+  xs <- forAll (Gen.list (Range.linear 0 4) genText)
+  ys <- forAll (Gen.list (Range.linear 0 4) genText)
+  app Std.join (app (app (tyApp Std.append TString) (strs xs)) (strs ys))
+    `evalsTo` eString (mconcat (xs <> ys))
+
+prop_stdlibMap :: Property
+prop_stdlibMap = property $ do
+  ss <- forAll (Gen.list (Range.linear 0 4) genText)
+  let bang = lam "s" TString (concat_ (var "s") (eString "!"))
+  app Std.join (app (app (tyApp (tyApp Std.map_ TString) TString) bang) (strs ss))
+    `evalsTo` eString (mconcat (map (<> "!") ss))
+
+prop_stdlibFlatten :: Property
+prop_stdlibFlatten = property $ do
+  sss <- forAll (Gen.list (Range.linear 0 3) (Gen.list (Range.linear 0 3) genText))
+  let obj = foldr (Std.cons (Std.list TString) . strs) (Std.nil (Std.list TString)) sss
+  app Std.join (app (tyApp Std.flatten TString) obj)
+    `evalsTo` eString (mconcat (mconcat sss))
+
 prop_renderTyPrec :: Property
 prop_renderTyPrec = withTests 1 . property $ do
   renderTy (TFun TString (TFun TString TString)) === "string → string → string"
@@ -279,6 +335,18 @@ main = defaultMain $ testGroup "docent"
   , testGroup "existentials"
       [ testPropertyNamed "unpack cancels pack" "prop_evalUnpackPack" prop_evalUnpackPack
       , testPropertyNamed "unpack of a non-pack is an error" "prop_evalUnpackNonPack" prop_evalUnpackNonPack
+      ]
+  , testGroup "universals"
+      [ testPropertyNamed "type abstraction generalizes" "prop_typecheckTyLam" prop_typecheckTyLam
+      , testPropertyNamed "type application instantiates" "prop_evalTyApp" prop_evalTyApp
+      , testPropertyNamed "type application of a non-abstraction is an error" "prop_evalTyAppNonTyLam" prop_evalTyAppNonTyLam
+      ]
+  , testGroup "stdlib"
+      [ testPropertyNamed "stdlib entries have their advertised types" "prop_stdlibTypes" prop_stdlibTypes
+      , testPropertyNamed "join concatenates" "prop_stdlibJoin" prop_stdlibJoin
+      , testPropertyNamed "append concatenates lists" "prop_stdlibAppend" prop_stdlibAppend
+      , testPropertyNamed "map maps" "prop_stdlibMap" prop_stdlibMap
+      , testPropertyNamed "flatten flattens" "prop_stdlibFlatten" prop_stdlibFlatten
       ]
   , testGroup "rendering"
       [ testPropertyNamed "freshens bound names" "prop_renderApp" prop_renderApp

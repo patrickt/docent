@@ -1,0 +1,50 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+module Docent.Syntax.Universal
+  ( UniF (..)
+  , tyLam
+  , tyApp
+  ) where
+
+import Bound
+import Prettyprinter (pretty, (<+>))
+import Prettyprinter qualified as P
+
+import Docent.Ident (Ident)
+import Docent.Sum
+import Docent.Type
+import Docent.Typecheck
+import Docent.Algebra
+
+data UniF t a
+  = TyLam Ident (t a)      -- Λα. e; α is a named type variable scoping over e's annotations
+  | TyApp (t a) (Ty Ident) -- e [σ]
+
+instance HBind UniF where
+  hbind k (TyLam n e) = TyLam n (e >>= k)
+  hbind k (TyApp e ty) = TyApp (e >>= k) ty
+
+instance TypeableF UniF where
+  tcAlg ctx (TyLam name body) = do
+    tb <- typecheck ctx body
+    pure (forall_ name tb)
+  tcAlg ctx (TyApp e sigma) = do
+    te <- typecheck ctx e
+    case te of
+      TForall b -> pure (instantiate1 sigma b)
+      other -> typeError (TForall (toScope TVoid)) other
+
+instance EqAlg UniF where
+  eqAlg (TyLam n e) (TyLam n' e') = n == n' && eqTerm e e'
+  eqAlg (TyApp e ty) (TyApp e' ty') = eqTerm e e' && ty == ty'
+  eqAlg _ _ = False
+
+instance PrettyAlg UniF where
+  prettyAlg sup (TyLam n e) = "Λ" <> pretty n <> "." <+> prettyTerm sup e
+  prettyAlg sup (TyApp e ty) = prettyTerm sup e <+> P.brackets (prettyTy sup ty)
+
+tyLam :: (UniF :<: s) => Ident -> Term s a -> Term s a
+tyLam n e = inject (TyLam n e)
+
+tyApp :: (UniF :<: s) => Term s a -> Ty Ident -> Term s a
+tyApp e ty = inject (TyApp e ty)

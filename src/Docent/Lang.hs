@@ -36,8 +36,9 @@ import Docent.Type
 import Prettyprinter (Pretty (..), defaultLayoutOptions, layoutPretty, (<+>))
 import Prettyprinter.Render.Text (renderStrict)
 import Docent.Syntax.Existential
+import Docent.Syntax.Universal
 
-type Sig = StrF :+: LamF :+: RecF :+: VntF :+: FixF :+: MuF :+: ExiF
+type Sig = StrF :+: LamF :+: RecF :+: VntF :+: FixF :+: MuF :+: ExiF :+: UniF
 
 data EvalError
   = NonStringConcat
@@ -48,6 +49,7 @@ data EvalError
   | MissingBranch Ident
   | NonFoldUnfold
   | NonPackUnpack
+  | NonTypeAbstraction
   | StuckTerm
   deriving (Eq, Show)
 
@@ -60,6 +62,7 @@ instance Pretty EvalError where
   pretty (MissingBranch l) = "case has no branch for label" <+> pretty l
   pretty NonFoldUnfold = "unfold of a non-fold value"
   pretty NonPackUnpack = "unpack of a non-pack value"
+  pretty NonTypeAbstraction = "type application of a non-type-abstraction"
   pretty StuckTerm = "evaluation is stuck"
 
 eval :: (Has (Error EvalError) sig m) => Term Sig a -> m (Term Sig a)
@@ -103,6 +106,11 @@ eval (In t)
       eval inner
   | Just (Pack {}) <- prj t = do
       pure (In t)
+  | Just (TyLam {}) <- prj t = do
+      pure (In t)
+  | Just (TyApp e _ty) <- prj t = do
+      (_name, body) <- eval e >>= require O._TyLam NonTypeAbstraction
+      eval body
   | Just (Unpack _name val scope) <- prj t = do
       (payload, _wit, _ann) <- eval val >>= require O._Pack NonPackUnpack
       payload' <- eval payload

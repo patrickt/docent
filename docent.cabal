@@ -28,6 +28,7 @@ library
                       Docent.Ident
                       Docent.Lang
                       Docent.Optics
+                      Docent.Stdlib
                       Docent.Sum
                       Docent.Syntax.Existential
                       Docent.Syntax.Fixpoint
@@ -35,6 +36,7 @@ library
                       Docent.Syntax.Prog
                       Docent.Syntax.Record
                       Docent.Syntax.StrLit
+                      Docent.Syntax.Universal
                       Docent.Syntax.Variant
                       Docent.Type
                       Docent.Typecheck

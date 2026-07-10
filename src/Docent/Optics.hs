@@ -11,6 +11,7 @@ module Docent.Optics
     _Fold,
     _Unfold,
     _Pack,
+    _TyLam,
     require,
   )
 where
@@ -21,10 +22,11 @@ import Docent.Sum (Term, (:<:))
 import Docent.Sum qualified as Sum
 import Docent.Syntax.Existential
 import Docent.Syntax.Mu (MuF (..))
-import Docent.Syntax.Prog
-import Docent.Syntax.Record
+import Docent.Syntax.Prog (LamF (..))
+import Docent.Syntax.Record (RecF (..))
 import Docent.Syntax.StrLit (StrF (..))
-import Docent.Syntax.Variant
+import Docent.Syntax.Universal (UniF (..))
+import Docent.Syntax.Variant (VarF (..))
 import Optics
 import Optics.TH (makePrisms)
 
@@ -50,3 +52,4 @@ makePrisms ''RecF
 makePrisms ''VntF
 makePrisms ''MuF
 makePrisms ''ExiF
+makePrisms ''UniF
