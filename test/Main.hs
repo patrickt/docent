@@ -16,21 +16,25 @@ import Test.Tasty.Hedgehog
 import Docent.Ident (Ident)
 import Docent.Ident qualified as Ident
 import Docent.Sum (Term, var)
-import Docent.Type (Ty (..))
-import Docent.Algebra (typecheck, eqTerm)
+import Docent.Type (Ty (..), exists_, forall_, mu_, renderTy)
+import Docent.Algebra (eqTerm)
 import Docent.Syntax.StrLit (eString, concat_)
 import Docent.Syntax.Prog (lam, app, let_)
+import Docent.Syntax.Existential (pack_, unpack_)
+import Docent.Syntax.Mu (fold_, unfold_)
 import Docent.Syntax.Record (record, project)
+import Docent.Syntax.Variant (inject_)
+import Docent.Typecheck (runTypecheck)
 import Docent.Lang (Sig, EvalError (..), runEval, renderTop)
 
 genText :: Gen Text
 genText = Gen.text (Range.linear 0 32) Gen.unicode
 
-noFree :: Ident -> Ty
+noFree :: Ident -> Ty Ident
 noFree v = error ("unexpected free variable: " <> Ident.toString v)
 
-typechecksTo :: Term Sig Ident -> Ty -> PropertyT IO ()
-typechecksTo t ty = typecheck noFree t === Right ty
+typechecksTo :: Term Sig Ident -> Ty Ident -> PropertyT IO ()
+typechecksTo t ty = runTypecheck noFree t === Right ty
 
 infix 4 ~==
 (~==) :: Term Sig Ident -> Term Sig Ident -> PropertyT IO ()
@@ -108,6 +112,68 @@ prop_evalMissingField = property $ do
   let fields = [(n, eString (Ident.toText n)) | n <- names]
   project (record fields) missing `evalFailsWith` MissingField missing
 
+prop_tyAlphaEq :: Property
+prop_tyAlphaEq = property $ do
+  a <- forAll genIdent
+  b <- forAll (Gen.filter (/= a) genIdent)
+  forall_ a (TFun (TVar a) (TVar a)) === forall_ b (TFun (TVar b) (TVar b))
+  forall_ a (TFun (TVar a) (TVar a)) /== forall_ a (TFun (TVar a) TString)
+
+-- μa. ⟨nil : {} | cons : {head : string, tail : a}⟩
+strListBody :: Ty Ident -> Ty Ident
+strListBody tl = TVariant (Map.fromList
+  [ ("nil", TRecord Map.empty)
+  , ("cons", TRecord (Map.fromList [("head", TString), ("tail", tl)]))
+  ])
+
+strList, strListUnrolled :: Ty Ident
+strList = mu_ "a" (strListBody (TVar "a"))
+strListUnrolled = strListBody strList
+
+nil :: Term Sig Ident
+nil = fold_ strList (inject_ "nil" strListUnrolled (record ([] :: [(Ident, Term Sig Ident)])))
+
+cons :: Text -> Term Sig Ident -> Term Sig Ident
+cons s xs = fold_ strList (inject_ "cons" strListUnrolled (record [("head", eString s), ("tail", xs)]))
+
+prop_typecheckFold :: Property
+prop_typecheckFold = property $ do
+  ss <- forAll (Gen.list (Range.linear 0 5) genText)
+  foldr cons nil ss `typechecksTo` strList
+
+prop_typecheckUnfold :: Property
+prop_typecheckUnfold = property $ do
+  ss <- forAll (Gen.list (Range.linear 0 5) genText)
+  unfold_ (foldr cons nil ss) `typechecksTo` strListUnrolled
+
+prop_evalUnfoldFold :: Property
+prop_evalUnfoldFold = property $ do
+  s <- forAll genText
+  unfold_ (fold_ strList (eString s)) `evalsTo` eString s
+
+prop_evalUnfoldNonFold :: Property
+prop_evalUnfoldNonFold = property $ do
+  s <- forAll genText
+  unfold_ (eString s) `evalFailsWith` NonFoldUnfold
+
+prop_evalUnpackPack :: Property
+prop_evalUnpackPack = property $ do
+  s <- forAll genText
+  let pkg = pack_ (eString s) TString (exists_ "a" (TVar "a"))
+  unpack_ "x" "a" pkg (var "x") `evalsTo` eString s
+
+prop_evalUnpackNonPack :: Property
+prop_evalUnpackNonPack = property $ do
+  s <- forAll genText
+  unpack_ "x" "a" (eString s) (var "x") `evalFailsWith` NonPackUnpack
+
+prop_renderTyPrec :: Property
+prop_renderTyPrec = withTests 1 . property $ do
+  renderTy (TFun TString (TFun TString TString)) === "string → string → string"
+  renderTy (TFun (TFun TString TString) TString) === "(string → string) → string"
+  renderTy (forall_ "a" (TFun (TVar "a") (TVar "a"))) === "∀v0. v0 → v0"
+  renderTy (TFun (forall_ "a" (TVar "a")) TString) === "(∀v0. v0) → string"
+
 prop_renderApp :: Property
 prop_renderApp = withTests 1 . property $
   renderTop (appProg "z") === "fun (v0 : string). v0 \"z\""
@@ -140,7 +206,7 @@ prop_typecheckProjectMissing = property $ do
   names <- forAll genFieldNames
   missing <- forAll (Gen.filter (`notElem` names) genIdent)
   let fields = [(n, eString (Ident.toText n)) | n <- names]
-  let result = typecheck noFree (project (record fields) missing :: Term Sig Ident)
+  let result = runTypecheck noFree (project (record fields) missing :: Term Sig Ident)
   annotateShow result
   assert (isLeft result)
 
@@ -199,6 +265,20 @@ main = defaultMain $ testGroup "docent"
       , testPropertyNamed "beta reduction" "prop_evalApp" prop_evalApp
       , testPropertyNamed "applying a non-function is an error" "prop_evalNonFunction" prop_evalNonFunction
       , testPropertyNamed "projecting a missing field is an error" "prop_evalMissingField" prop_evalMissingField
+      ]
+  , testGroup "types"
+      [ testPropertyNamed "quantified types compare up to alpha-equivalence" "prop_tyAlphaEq" prop_tyAlphaEq
+      , testPropertyNamed "prints types with minimal parentheses" "prop_renderTyPrec" prop_renderTyPrec
+      ]
+  , testGroup "recursive types"
+      [ testPropertyNamed "string lists typecheck at their mu type" "prop_typecheckFold" prop_typecheckFold
+      , testPropertyNamed "unfold typechecks at the unrolling" "prop_typecheckUnfold" prop_typecheckUnfold
+      , testPropertyNamed "unfold cancels fold" "prop_evalUnfoldFold" prop_evalUnfoldFold
+      , testPropertyNamed "unfold of a non-fold is an error" "prop_evalUnfoldNonFold" prop_evalUnfoldNonFold
+      ]
+  , testGroup "existentials"
+      [ testPropertyNamed "unpack cancels pack" "prop_evalUnpackPack" prop_evalUnpackPack
+      , testPropertyNamed "unpack of a non-pack is an error" "prop_evalUnpackNonPack" prop_evalUnpackNonPack
       ]
   , testGroup "rendering"
       [ testPropertyNamed "freshens bound names" "prop_renderApp" prop_renderApp

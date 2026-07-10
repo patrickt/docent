@@ -24,16 +24,20 @@ common shared
 
 library
     import:           shared
-    exposed-modules:  Docent.Ident
+    exposed-modules:  Docent.Algebra
+                      Docent.Ident
+                      Docent.Lang
+                      Docent.Optics
                       Docent.Sum
-                      Docent.Type
-                      Docent.Algebra
+                      Docent.Syntax.Existential
                       Docent.Syntax.Fixpoint
-                      Docent.Syntax.StrLit
+                      Docent.Syntax.Mu
                       Docent.Syntax.Prog
                       Docent.Syntax.Record
+                      Docent.Syntax.StrLit
                       Docent.Syntax.Variant
-                      Docent.Lang
+                      Docent.Type
+                      Docent.Typecheck
     build-depends:    Stream
                     , bound
                     , ordered-containers

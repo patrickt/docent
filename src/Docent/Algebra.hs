@@ -1,9 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Docent.Algebra
-  ( TypeableF (..)
-  , typecheck
-  , EqAlg (..)
+  ( EqAlg (..)
   , eqTerm
   , PrettyAlg (..)
   , prettyTerm
@@ -16,21 +14,6 @@ import Prettyprinter (Doc, Pretty (..))
 import Docent.Ident (Ident)
 import Docent.Sum
 import Docent.Type
-
--- Typechecking ---------------------------------------------------------------
-
-class TypeableF f where
-  tcAlg :: (TypeableF s, HBind s)
-        => (a -> Ty) -> f (Term s) a -> Either TypeError Ty
-
-typecheck :: (TypeableF s, HBind s)
-          => (a -> Ty) -> Term s a -> Either TypeError Ty
-typecheck ctx (Var a) = Right (ctx a)
-typecheck ctx (In t)  = tcAlg ctx t
-
-instance (TypeableF f, TypeableF g) => TypeableF (f :+: g) where
-  tcAlg ctx (InL x) = tcAlg ctx x
-  tcAlg ctx (InR y) = tcAlg ctx y
 
 -- Alpha-equivalence ----------------------------------------------------------
 

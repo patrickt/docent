@@ -14,6 +14,7 @@ import Prettyprinter qualified as P
 import Docent.Ident (Ident)
 import Docent.Sum
 import Docent.Type
+import Docent.Typecheck
 import Docent.Algebra
 import GHC.Exts
 
@@ -28,12 +29,12 @@ instance HBind RecF where
 instance TypeableF RecF where
   tcAlg ctx (Record fields) = do
     fs <- traverse (typecheck ctx) fields
-    Right (TRecord fs)
+    pure (TRecord fs)
   tcAlg ctx (Project t a) = do
     rec_ <- typecheck ctx t
     case rec_ of
-      TRecord fields | Just ty <- Map.lookup a fields -> Right ty
-      other -> Left (TypeError (TRecord Map.empty) other)
+      TRecord fields | Just ty <- Map.lookup a fields -> pure ty
+      other -> typeError (TRecord Map.empty) other
 
 instance EqAlg RecF where
   eqAlg (Record as) (Record bs) = do

@@ -13,12 +13,14 @@ import Data.Stream (Stream (..))
 import Prettyprinter (Pretty (..), (<+>))
 import Prettyprinter qualified as P
 
+import Docent.Ident (Ident)
 import Docent.Sum
 import Docent.Type
 import Docent.Algebra
+import Docent.Typecheck
 
 data LamF t a
-  = Lam Ty (Scope () t a)
+  = Lam (Ty Ident) (Scope () t a)
   | App (t a) (t a)
   | Let (t a) (Scope () t a)
 
@@ -39,12 +41,12 @@ instance TypeableF LamF where
     tf <- typecheck ctx f
     tx <- typecheck ctx x
     case tf of
-      TFun arg res | arg == tx -> Right res
-      TFun arg _               -> Left (TypeError arg tx)
-      other                    -> Left (TypeError (TFun TString TString) other)
+      TFun arg res | arg == tx -> pure res
+      TFun arg _               -> typeError arg tx
+      other                    -> typeError (TFun TString TString) other
   tcAlg ctx (Lam ty b) = do
     tb <- typecheck (unvar (const ty) ctx) (fromScope b)
-    Right (TFun ty tb)
+    pure (TFun ty tb)
   tcAlg ctx (Let e b) = do
     te <- typecheck ctx e
     typecheck (unvar (const te) ctx) (fromScope b)
@@ -55,7 +57,7 @@ instance EqAlg LamF where
   eqAlg (Let e1 b1) (Let e2 b2) = eqTerm e1 e2 && eqTerm (fromScope b1) (fromScope b2)
   eqAlg _           _           = False
 
-lam :: (LamF :<: s, HBind s, Eq a) => a -> Ty -> Term s a -> Term s a
+lam :: (LamF :<: s, HBind s, Eq a) => a -> Ty Ident -> Term s a -> Term s a
 lam x ty body = inject (Lam ty (abstract1 x body))
 
 app :: (LamF :<: s) => Term s a -> Term s a -> Term s a

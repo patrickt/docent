@@ -1,19 +1,23 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Docent.Syntax.Fixpoint
-  ( FixF (..)
-  , fix_
-  ) where
+  ( FixF (..),
+    fix_,
+  )
+where
 
 import Bound
-import Docent.Type
-import Data.Stream (Stream(..))
-import Docent.Algebra
-import Docent.Sum
-import Prettyprinter qualified as P
-import Prettyprinter ((<+>))
 import Bound.Var
+import Data.Stream (Stream (..))
+import Docent.Algebra
+import Docent.Ident (Ident)
+import Docent.Sum
+import Docent.Type
+import Docent.Typecheck
+import Prettyprinter ((<+>))
+import Prettyprinter qualified as P
 
-data FixF t a = Fix Ty (Scope () t a)
+data FixF t a = Fix (Ty Ident) (Scope () t a)
 
 instance PrettyAlg FixF where
   prettyAlg (Cons n rest) (Fix ty body) =
@@ -29,8 +33,8 @@ instance TypeableF FixF where
   tcAlg ctx (Fix ty bod) = do
     tb <- typecheck (unvar (const ty) ctx) (fromScope bod)
     if ty == tb
-      then Right ty
-      else Left (TypeError ty tb)
+      then pure ty
+      else typeError ty tb
 
-fix_ :: (FixF :<: s, HBind s, Eq a) => a -> Ty -> Term s a -> Term s a
+fix_ :: (FixF :<: s, HBind s, Eq a) => a -> Ty Ident -> Term s a -> Term s a
 fix_ x ty body = inject (Fix ty (abstract1 x body))

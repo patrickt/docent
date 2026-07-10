@@ -20,16 +20,14 @@ where
 import Bound (instantiate1)
 import Control.Carrier.Error.Either
 import Data.Map.Ordered qualified as OMap
-import Data.Stream qualified as Stream
 import Data.Text (Text)
-import Data.Text qualified as T
 import Docent.Algebra
-import Docent.Ident (Ident)
-import Docent.Ident qualified as Ident
+import Docent.Ident (Ident, names)
 import Docent.Optics (require)
 import Docent.Optics qualified as O
 import Docent.Sum
 import Docent.Syntax.Fixpoint
+import Docent.Syntax.Mu
 import Docent.Syntax.Prog
 import Docent.Syntax.Record
 import Docent.Syntax.StrLit
@@ -37,8 +35,9 @@ import Docent.Syntax.Variant
 import Docent.Type
 import Prettyprinter (Pretty (..), defaultLayoutOptions, layoutPretty, (<+>))
 import Prettyprinter.Render.Text (renderStrict)
+import Docent.Syntax.Existential
 
-type Sig = StrF :+: LamF :+: RecF :+: VntF :+: FixF
+type Sig = StrF :+: LamF :+: RecF :+: VntF :+: FixF :+: MuF :+: ExiF
 
 data EvalError
   = NonStringConcat
@@ -47,6 +46,8 @@ data EvalError
   | MissingField Ident
   | NonVariantScrutinee
   | MissingBranch Ident
+  | NonFoldUnfold
+  | NonPackUnpack
   | StuckTerm
   deriving (Eq, Show)
 
@@ -57,6 +58,8 @@ instance Pretty EvalError where
   pretty (MissingField f) = "record has no field" <+> pretty f
   pretty NonVariantScrutinee = "case scrutinee is not a variant"
   pretty (MissingBranch l) = "case has no branch for label" <+> pretty l
+  pretty NonFoldUnfold = "unfold of a non-fold value"
+  pretty NonPackUnpack = "unpack of a non-pack value"
   pretty StuckTerm = "evaluation is stuck"
 
 eval :: (Has (Error EvalError) sig m) => Term Sig a -> m (Term Sig a)
@@ -80,7 +83,7 @@ eval (In t)
       pure (In t)
   | Just (Project rec_ f) <- prj t = do
       rs <- eval rec_ >>= require O._Record NonRecordProjection
-      case Map.lookup f rs of
+      case OMap.lookup f rs of
         Just field -> eval field
         Nothing -> throwError (MissingField f)
   | Just (Inject {}) <- prj t = pure (In t)
@@ -93,14 +96,22 @@ eval (In t)
         Nothing -> throwError (MissingBranch lab)
   | Just (Fix _ty val) <- prj t = do
       eval (instantiate1 (In t) val)
+  | Just (Fold _ _) <- prj t = do
+      pure (In t)
+  | Just (Unfold e) <- prj t = do
+      (_ty, inner) <- eval e >>= require O._Fold NonFoldUnfold
+      eval inner
+  | Just (Pack {}) <- prj t = do
+      pure (In t)
+  | Just (Unpack _name val scope) <- prj t = do
+      (payload, _wit, _ann) <- eval val >>= require O._Pack NonPackUnpack
+      payload' <- eval payload
+      eval (instantiate1 payload' scope)
   | otherwise = do
       throwError StuckTerm
 
 runEval :: Term Sig a -> Either EvalError (Term Sig a)
 runEval = run . runError . eval
-
-names :: Stream.Stream Ident
-names = Stream.unfold (\i -> (Ident.fromText (T.pack ("v" <> show (i :: Int))), succ i)) 0
 
 renderTop :: Term Sig Ident -> Text
 renderTop = renderStrict . layoutPretty defaultLayoutOptions . prettyTerm names

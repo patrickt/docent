@@ -13,6 +13,7 @@ import Prettyprinter qualified as P
 import Docent.Sum
 import Docent.Type
 import Docent.Algebra
+import Docent.Typecheck
 
 data StrF t a
   = EString Text
@@ -23,14 +24,14 @@ instance HBind StrF where
   hbind k (Concat a b) = Concat (a >>= k) (b >>= k)
 
 instance TypeableF StrF where
-  tcAlg _   (EString _)  = Right TString
+  tcAlg _   (EString _)  = pure TString
   tcAlg ctx (Concat a b) = do
     ta <- typecheck ctx a
     tb <- typecheck ctx b
     case (ta, tb) of
-      (TString, TString) -> Right TString
-      (TString, other)   -> Left (TypeError TString other)
-      (other, _)         -> Left (TypeError TString other)
+      (TString, TString) -> pure TString
+      (TString, other)   -> typeError TString other
+      (other, _)         -> typeError TString other
 
 instance EqAlg StrF where
   eqAlg (EString a)  (EString b)  = a == b

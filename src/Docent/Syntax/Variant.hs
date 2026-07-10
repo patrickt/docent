@@ -19,10 +19,11 @@ import Data.Stream (Stream(..))
 import Docent.Sum
 import Docent.Type
 import Docent.Algebra
+import Docent.Typecheck
 import Docent.Ident (Ident)
 
 data VntF t a
-  = Inject Ident Ty (t a)
+  = Inject Ident (Ty Ident) (t a)
   | Case (t a) (OMap Ident (Scope () t a))
 
 data Branch s a = Branch Ident a (Term s a)
@@ -47,26 +48,26 @@ instance TypeableF VntF where
                           given <- typecheck ctx expr
                           if given == found
                             then pure ty
-                            else Left (TypeError found given)
-      other -> Left (TypeError other ty)
+                            else typeError found given
+      other -> typeError other ty
 
   tcAlg ctx (Case term branches) = do
     ty <- typecheck ctx term
     fields <- case ty of
-      TVariant fields -> Right fields
-      other -> Left (TypeError (TVariant OMap.empty) other)
+      TVariant fields -> pure fields
+      other -> typeError (TVariant OMap.empty) other
     when (OMap.size branches /= OMap.size fields) $
-      Left (TypeError ty (TVariant OMap.empty))
+      typeError ty (TVariant OMap.empty)
     checked <- traverse
       (\(l, tl) -> case OMap.lookup l branches of
           Just b -> typecheck (unvar (const tl) ctx) (fromScope b)
-          Nothing -> Left (TypeError ty (TVariant OMap.empty)))
+          Nothing -> typeError ty (TVariant OMap.empty))
       (OMap.assocs fields)
     case checked of
-      [] -> error "haven't implemented void type yet"
+      [] -> pure TVoid
       (t : ts) -> case find (/= t) ts of
-        Just bad -> Left (TypeError t bad)
-        Nothing -> Right t
+        Just bad -> typeError t bad
+        Nothing -> pure t
 
 instance EqAlg VntF where
   eqAlg (Inject i t term) (Inject i' t' term') = i == i' && t == t' && eqTerm term term'
@@ -77,7 +78,7 @@ instance EqAlg VntF where
     equal _lab m m' = eqTerm (fromScope m) (fromScope m')
   eqAlg _ _ = False
 
-inject_ :: (VntF :<: s) => Ident -> Ty -> Term s a -> Term s a
+inject_ :: (VntF :<: s) => Ident -> Ty Ident -> Term s a -> Term s a
 inject_ i ty term = inject (Inject i ty term)
 
 case_ :: (VntF :<: s, HBind s, Eq a) => Term s a -> [Branch s a] -> Term s a
