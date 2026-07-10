@@ -1,11 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Docent.Syntax.Record
   ( RecF (..)
-  , record
-  , project
+  , record_
+  , project_
   ) where
 
-import Data.Foldable hiding (toList)
 import Data.Map.Ordered (OMap)
 import Data.Map.Ordered qualified as Map
 import Prettyprinter (Pretty (..), (<+>))
@@ -45,11 +44,11 @@ instance EqAlg RecF where
   eqAlg (Project a f) (Project b g) = eqTerm a b && f == g
   eqAlg _ _ = False
 
-record :: (IsList l, Item l ~ (Ident, Term s a), RecF :<: s) => l -> Term s a
-record fields = inject (Record (Map.fromList (toList fields)))
+record_ :: (IsList l, Item l ~ (Ident, Term s a), RecF :<: s) => l -> Term s a
+record_ fields = inject (Record (Map.fromList (toList fields)))
 
-project :: (RecF :<: s) => Term s a -> Ident -> Term s a
-project t f = inject (Project t f)
+project_ :: (RecF :<: s) => Term s a -> Ident -> Term s a
+project_ t f = inject (Project t f)
 
 instance PrettyAlg RecF where
   prettyAlg sup (Record fields) =

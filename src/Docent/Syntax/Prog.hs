@@ -45,8 +45,9 @@ instance TypeableF LamF where
       TFun arg _               -> typeError arg tx
       other                    -> typeError (TFun TString TString) other
   tcAlg ctx (Lam ty b) = do
-    tb <- typecheck (unvar (const ty) ctx) (fromScope b)
-    pure (TFun ty tb)
+    ty' <- resolve ty
+    tb <- typecheck (unvar (const ty') ctx) (fromScope b)
+    pure (TFun ty' tb)
   tcAlg ctx (Let e b) = do
     te <- typecheck ctx e
     typecheck (unvar (const te) ctx) (fromScope b)

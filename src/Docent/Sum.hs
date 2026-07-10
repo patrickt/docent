@@ -1,11 +1,15 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 module Docent.Sum
   ( type (:+:) (..)
   , Term (..)
   , var
   , type (:<:) (..)
   , inject
+  , project
+  , pattern Match
   , HBind (..)
   ) where
 
@@ -44,6 +48,14 @@ instance (f :<: g) => f :<: (h :+: g) where
 
 inject :: (f :<: s) => f (Term s) a -> Term s a
 inject = In . inj
+
+project :: (f :<: s) => Term s a -> Maybe (f (Term s) a)
+project (In t) = prj t
+project (Var _) = Nothing
+
+pattern Match :: (f :<: s) => f (Term s) a -> Term s a
+pattern Match f <- (project -> Just f)
+  where Match f = inject f
 
 class HBind f where
   hbind :: HBind s => (a -> Term s b) -> f (Term s) a -> f (Term s) b

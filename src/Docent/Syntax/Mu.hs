@@ -25,14 +25,16 @@ instance HBind MuF where
   hbind k (Unfold e)  = Unfold (e >>= k)
 
 instance TypeableF MuF where
-  tcAlg ctx (Fold ty e) = case ty of
-    TMu b -> do
-      given <- typecheck ctx e
-      let expected = instantiate1 (TMu b) b
-      if given == expected
-        then pure ty
-        else typeError expected given
-    other -> typeError (TMu (toScope TVoid)) other
+  tcAlg ctx (Fold ty e) = do
+    ty' <- resolve ty
+    case ty' of
+      TMu b -> do
+        given <- typecheck ctx e
+        let expected = instantiate1 ty' b
+        if given == expected
+          then pure ty'
+          else typeError expected given
+      other -> typeError (TMu (toScope TVoid)) other
   tcAlg ctx (Unfold e) = do
     te <- typecheck ctx e
     case te of

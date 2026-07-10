@@ -22,7 +22,7 @@ import Docent.Sum (Term, var)
 import Docent.Syntax.Fixpoint (fix_)
 import Docent.Syntax.Mu (fold_, unfold_)
 import Docent.Syntax.Prog (app, lam)
-import Docent.Syntax.Record (project, record)
+import Docent.Syntax.Record (project_, record_)
 import Docent.Syntax.StrLit (concat_, eString)
 import Docent.Syntax.Universal (tyApp, tyLam)
 import Docent.Syntax.Variant (Branch (..), case_, inject_)
@@ -32,7 +32,7 @@ unitTy :: Ty Ident
 unitTy = TRecord OMap.empty
 
 unit :: Term Sig Ident
-unit = record ([] :: [(Ident, Term Sig Ident)])
+unit = record_([] :: [(Ident, Term Sig Ident)])
 
 -- τ list ≜ μt. ⟨nil : () | cons : {hd : τ, tail : t}⟩
 -- The recursion binder is "t" so that instantiating at a type with "α" free
@@ -54,7 +54,7 @@ nil :: Ty Ident -> Term Sig Ident
 nil a = con "nil" (list a) unit
 
 cons :: Ty Ident -> Term Sig Ident -> Term Sig Ident -> Term Sig Ident
-cons a hd tl = con "cons" (list a) (record [("hd", hd), ("tail", tl)])
+cons a hd tl = con "cons" (list a) (record_[("hd", hd), ("tail", tl)])
 
 -- map : ∀α,β. (α → β) → α list → β list
 map_ :: Term Sig Ident
@@ -67,8 +67,8 @@ map_ =
             [ Branch "nil" "u" (nil b)
             , Branch "cons" "c"
                 (cons b
-                  (app (var "f") (project (var "c") "hd"))
-                  (app (app (var "map") (var "f")) (project (var "c") "tail")))
+                  (app (var "f") (project_ (var "c") "hd"))
+                  (app (app (var "map") (var "f")) (project_ (var "c") "tail")))
             ]
   where
     a = TVar "α"
@@ -85,8 +85,8 @@ append =
             [ Branch "nil" "u" (var "ys")
             , Branch "cons" "c"
                 (cons a
-                  (project (var "c") "hd")
-                  (app (app (var "append") (project (var "c") "tail")) (var "ys")))
+                  (project_ (var "c") "hd")
+                  (app (app (var "append") (project_ (var "c") "tail")) (var "ys")))
             ]
   where
     a = TVar "α"
@@ -100,8 +100,8 @@ flatten =
         case_ (unfold_ (var "xss"))
           [ Branch "nil" "u" (nil a)
           , Branch "cons" "c"
-              (app (app (tyApp append a) (project (var "c") "hd"))
-                   (app (var "flatten") (project (var "c") "tail")))
+              (app (app (tyApp append a) (project_ (var "c") "hd"))
+                   (app (var "flatten") (project_ (var "c") "tail")))
           ]
   where
     a = TVar "α"
@@ -114,5 +114,5 @@ join =
       case_ (unfold_ (var "xs"))
         [ Branch "nil" "u" (eString "")
         , Branch "cons" "c"
-            (concat_ (project (var "c") "hd") (app (var "join") (project (var "c") "tail")))
+            (concat_ (project_ (var "c") "hd") (app (var "join") (project_ (var "c") "tail")))
         ]

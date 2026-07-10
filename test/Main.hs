@@ -24,7 +24,7 @@ import Docent.Stdlib qualified as Std
 import Docent.Syntax.Existential (pack_, unpack_)
 import Docent.Syntax.Mu (fold_, unfold_)
 import Docent.Syntax.Universal (tyApp, tyLam)
-import Docent.Syntax.Record (record, project)
+import Docent.Syntax.Record (record_, project_)
 import Docent.Syntax.Variant (inject_)
 import Docent.Typecheck (runTypecheck)
 import Docent.Lang (Sig, EvalError (..), runEval, renderTop)
@@ -112,7 +112,7 @@ prop_evalMissingField = property $ do
   names <- forAll genFieldNames
   missing <- forAll (Gen.filter (`notElem` names) genIdent)
   let fields = [(n, eString (Ident.toText n)) | n <- names]
-  project (record fields) missing `evalFailsWith` MissingField missing
+  project_ (record_ fields) missing `evalFailsWith` MissingField missing
 
 prop_tyAlphaEq :: Property
 prop_tyAlphaEq = property $ do
@@ -133,10 +133,10 @@ strList = mu_ "a" (strListBody (TVar "a"))
 strListUnrolled = strListBody strList
 
 nil :: Term Sig Ident
-nil = fold_ strList (inject_ "nil" strListUnrolled (record ([] :: [(Ident, Term Sig Ident)])))
+nil = fold_ strList (inject_ "nil" strListUnrolled (record_ ([] :: [(Ident, Term Sig Ident)])))
 
 cons :: Text -> Term Sig Ident -> Term Sig Ident
-cons s xs = fold_ strList (inject_ "cons" strListUnrolled (record [("head", eString s), ("tail", xs)]))
+cons s xs = fold_ strList (inject_ "cons" strListUnrolled (record_ [("head", eString s), ("tail", xs)]))
 
 prop_typecheckFold :: Property
 prop_typecheckFold = property $ do
@@ -172,6 +172,12 @@ prop_evalUnpackNonPack = property $ do
 prop_typecheckTyLam :: Property
 prop_typecheckTyLam = withTests 1 . property $
   tyLam "a" (lam "x" (TVar "a") (var "x")) `typechecksTo` forall_ "b" (TFun (TVar "b") (TVar "b"))
+
+prop_typecheckTyLamShadow :: Property
+prop_typecheckTyLamShadow = withTests 1 . property $
+  tyLam "a" (lam "x" (TVar "a") (tyLam "a" (lam "y" (TVar "a") (var "x"))))
+    `typechecksTo`
+      forall_ "a" (TFun (TVar "a") (forall_ "b" (TFun (TVar "b") (TVar "a"))))
 
 prop_evalTyApp :: Property
 prop_evalTyApp = property $ do
@@ -227,12 +233,12 @@ prop_renderTyPrec :: Property
 prop_renderTyPrec = withTests 1 . property $ do
   renderTy (TFun TString (TFun TString TString)) === "string → string → string"
   renderTy (TFun (TFun TString TString) TString) === "(string → string) → string"
-  renderTy (forall_ "a" (TFun (TVar "a") (TVar "a"))) === "∀v0. v0 → v0"
-  renderTy (TFun (forall_ "a" (TVar "a")) TString) === "(∀v0. v0) → string"
+  renderTy (forall_ "a" (TFun (TVar "a") (TVar "a"))) === "∀v%0. v%0 → v%0"
+  renderTy (TFun (forall_ "a" (TVar "a")) TString) === "(∀v%0. v%0) → string"
 
 prop_renderApp :: Property
 prop_renderApp = withTests 1 . property $
-  renderTop (appProg "z") === "fun (v0 : string). v0 \"z\""
+  renderTop (appProg "z") === "fun (v%0 : string). v%0 \"z\""
 
 genIdent :: Gen Ident
 genIdent = Ident.fromText <$> Gen.text (Range.linear 1 8) Gen.alpha
@@ -248,21 +254,21 @@ prop_typecheckRecord = property $ do
   names <- forAll genFieldNames
   vals <- forAll (Gen.list (Range.singleton (length names)) genText)
   let fields = zipWith (\n v -> (n, eString v)) names vals
-  record fields `typechecksTo` TRecord (Map.fromList [(n, TString) | n <- names])
+  record_ fields `typechecksTo` TRecord (Map.fromList [(n, TString) | n <- names])
 
 prop_typecheckProject :: Property
 prop_typecheckProject = property $ do
   names <- forAll genFieldNames
   target <- forAll (Gen.element names)
   let fields = [(n, eString (Ident.toText n)) | n <- names]
-  project (record fields) target `typechecksTo` TString
+  project_ (record_ fields) target `typechecksTo` TString
 
 prop_typecheckProjectMissing :: Property
 prop_typecheckProjectMissing = property $ do
   names <- forAll genFieldNames
   missing <- forAll (Gen.filter (`notElem` names) genIdent)
   let fields = [(n, eString (Ident.toText n)) | n <- names]
-  let result = runTypecheck noFree (project (record fields) missing :: Term Sig Ident)
+  let result = runTypecheck noFree (project_ (record_ fields) missing :: Term Sig Ident)
   annotateShow result
   assert (isLeft result)
 
@@ -271,7 +277,7 @@ prop_evalRecord = property $ do
   names <- forAll genFieldNames
   vals <- forAll (Gen.list (Range.singleton (length names)) genText)
   let fields = zipWith (\n v -> (n, eString v)) names vals
-  record fields `evalsTo` record fields
+  record_ fields `evalsTo` record_ fields
 
 prop_evalProject :: Property
 prop_evalProject = property $ do
@@ -279,33 +285,33 @@ prop_evalProject = property $ do
   vals <- forAll (Gen.list (Range.singleton (length names)) genText)
   (target, expected) <- forAll (Gen.element (zip names vals))
   let fields = zipWith (\n v -> (n, eString v)) names vals
-  project (record fields) target `evalsTo` eString expected
+  project_ (record_ fields) target `evalsTo` eString expected
 
 prop_projectForcesField :: Property
 prop_projectForcesField = property $ do
   n <- forAll genIdent
   a <- forAll genText
   b <- forAll genText
-  project (record [(n, concat_ (eString a) (eString b))]) n `evalsTo` eString (a <> b)
+  project_ (record_ [(n, concat_ (eString a) (eString b))]) n `evalsTo` eString (a <> b)
 
 prop_recordEqWidth :: Property
 prop_recordEqWidth = property $ do
   names <- forAll genFieldNames
   extra <- forAll (Gen.filter (`notElem` names) genIdent)
   let fields = [(n, eString (Ident.toText n)) | n <- names]
-  let narrow = record fields :: Term Sig Ident
-  let wide = record (fields <> [(extra, eString "extra")])
+  let narrow = record_ fields :: Term Sig Ident
+  let wide = record_ (fields <> [(extra, eString "extra")])
   assert (not (eqTerm narrow wide))
 
 prop_renderRecord :: Property
 prop_renderRecord = withTests 1 . property $
-  renderTop (project (record [("a", eString "x"), ("b", eString "y")]) "b")
+  renderTop (project_ (record_ [("a", eString "x"), ("b", eString "y")]) "b")
     === "{a = \"x\", b = \"y\"}.b"
 
 prop_renderRecordTy :: Property
 prop_renderRecordTy = withTests 1 . property $
-  renderTop (lam "r" (TRecord (Map.fromList [("a", TString)])) (project (var "r") "a"))
-    === "fun (v0 : {a : string}). v0.a"
+  renderTop (lam "r" (TRecord (Map.fromList [("a", TString)])) (project_ (var "r") "a"))
+    === "fun (v%0 : {a : string}). v%0.a"
 
 main :: IO ()
 main = defaultMain $ testGroup "docent"
@@ -338,6 +344,7 @@ main = defaultMain $ testGroup "docent"
       ]
   , testGroup "universals"
       [ testPropertyNamed "type abstraction generalizes" "prop_typecheckTyLam" prop_typecheckTyLam
+      , testPropertyNamed "shadowed type binders stay distinct" "prop_typecheckTyLamShadow" prop_typecheckTyLamShadow
       , testPropertyNamed "type application instantiates" "prop_evalTyApp" prop_evalTyApp
       , testPropertyNamed "type application of a non-abstraction is an error" "prop_evalTyAppNonTyLam" prop_evalTyAppNonTyLam
       ]

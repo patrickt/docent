@@ -26,12 +26,14 @@ instance HBind UniF where
 
 instance TypeableF UniF where
   tcAlg ctx (TyLam name body) = do
-    tb <- typecheck ctx body
-    pure (forall_ name tb)
+    sk <- freshTyVar name
+    tb <- withTyVar name sk (typecheck ctx body)
+    pure (forall_ sk tb)
   tcAlg ctx (TyApp e sigma) = do
+    sigma' <- resolve sigma
     te <- typecheck ctx e
     case te of
-      TForall b -> pure (instantiate1 sigma b)
+      TForall b -> pure (instantiate1 sigma' b)
       other -> typeError (TForall (toScope TVoid)) other
 
 instance EqAlg UniF where

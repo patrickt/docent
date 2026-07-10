@@ -43,13 +43,14 @@ instance PrettyAlg VntF where
 
 instance TypeableF VntF where
   tcAlg ctx (Inject ident ty expr) = do
-    case ty of
+    ty' <- resolve ty
+    case ty' of
       TVariant fields | Just found <- OMap.lookup ident fields -> do
                           given <- typecheck ctx expr
                           if given == found
-                            then pure ty
+                            then pure ty'
                             else typeError found given
-      other -> typeError other ty
+      other -> typeError other ty'
 
   tcAlg ctx (Case term branches) = do
     ty <- typecheck ctx term

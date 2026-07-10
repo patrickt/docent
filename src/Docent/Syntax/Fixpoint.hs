@@ -31,10 +31,11 @@ instance EqAlg FixF where
 
 instance TypeableF FixF where
   tcAlg ctx (Fix ty bod) = do
-    tb <- typecheck (unvar (const ty) ctx) (fromScope bod)
-    if ty == tb
-      then pure ty
-      else typeError ty tb
+    ty' <- resolve ty
+    tb <- typecheck (unvar (const ty') ctx) (fromScope bod)
+    if ty' == tb
+      then pure ty'
+      else typeError ty' tb
 
 fix_ :: (FixF :<: s, HBind s, Eq a) => a -> Ty Ident -> Term s a -> Term s a
 fix_ x ty body = inject (Fix ty (abstract1 x body))

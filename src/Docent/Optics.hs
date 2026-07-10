@@ -12,30 +12,30 @@ module Docent.Optics
     _Unfold,
     _Pack,
     _TyLam,
+    _TVariant,
     require,
   )
 where
 
 import Control.Effect.Error
-import Data.Text (Text)
 import Docent.Sum (Term, (:<:))
 import Docent.Sum qualified as Sum
+import Docent.Type (Ty (..))
 import Docent.Syntax.Existential
 import Docent.Syntax.Mu (MuF (..))
 import Docent.Syntax.Prog (LamF (..))
 import Docent.Syntax.Record (RecF (..))
 import Docent.Syntax.StrLit (StrF (..))
 import Docent.Syntax.Universal (UniF (..))
-import Docent.Syntax.Variant (VarF (..))
+import Docent.Syntax.Variant (VntF (..))
 import Optics
 import Optics.TH (makePrisms)
 
-require :: (Has (Error err) sig m, f :<: s) => Prism' (f (Term s) a) x -> err -> Term s a -> m x
+require :: (Has (Error err) sig m) => Prism' x y -> err -> x -> m y
 require optic err val =
-  let x = _Term % optic
-   in case (preview x val) of
-        Just v -> pure v
-        Nothing -> throwError err
+   case (preview optic val) of
+     Just v -> pure v
+     Nothing -> throwError err
 
 _Term :: (f :<: s) => Prism' (Term s a) (f (Term s) a)
 _Term =
@@ -53,3 +53,4 @@ makePrisms ''VntF
 makePrisms ''MuF
 makePrisms ''ExiF
 makePrisms ''UniF
+makePrisms ''Ty
