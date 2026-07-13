@@ -16,6 +16,8 @@ import Docent.Algebra
 import Docent.Typecheck
 
 -- fold [μα.τ] e rolls e : τ[α ↦ μα.τ] up into μα.τ; unfold unrolls it again.
+-- this is like Fix/Unfix but works on the type-level to provide access to the
+-- self-recursive part of a recursive data definition like `list`.
 data MuF t a
   = Fold (Ty Ident) (t a)
   | Unfold (t a)
@@ -27,19 +29,16 @@ instance HBind MuF where
 instance TypeableF MuF where
   tcAlg ctx (Fold ty e) = do
     ty' <- resolve ty
-    case ty' of
-      TMu b -> do
-        given <- typecheck ctx e
-        let expected = instantiate1 ty' b
-        if given == expected
-          then pure ty'
-          else typeError expected given
-      other -> typeError (TMu (toScope TVoid)) other
+    b <- assertType _TMu (TMu (toScope TVoid)) ty'
+    given <- typecheck ctx e
+    let expected = instantiate1 ty' b
+    if given == expected
+      then pure ty'
+      else typeError expected given
   tcAlg ctx (Unfold e) = do
     te <- typecheck ctx e
-    case te of
-      TMu b -> pure (instantiate1 (TMu b) b)
-      other -> typeError (TMu (toScope TVoid)) other
+    b <- assertType _TMu (TMu (toScope TVoid)) te
+    pure (instantiate1 te b)
 
 instance EqAlg MuF where
   eqAlg (Fold ty e) (Fold ty' e') = ty == ty' && eqTerm e e'

@@ -37,26 +37,26 @@ instance PrettyAlg VntF where
                                              "at", pretty i,
                                              "as", prettyTy sup ty
                                             ]
-  prettyAlg c@(Cons n rest) (Case term branches) = "case" <+> prettyTerm c term <+> P.braces (P.vsep body) where
+  prettyAlg c@(Cons n rest) (Case term branches) =
+    "case" <+> prettyTerm c term <+> P.group (P.braces (P.nest 2 (P.vsep body))) where
     body = fmap (uncurry go) (OMap.assocs branches)
     go ident bod = pretty ident <> P.parens (pretty n) <+> "⇒" <+> prettyTerm rest (instantiate1 (var n) bod)
 
 instance TypeableF VntF where
   tcAlg ctx (Inject ident ty expr) = do
     ty' <- resolve ty
-    case ty' of
-      TVariant fields | Just found <- OMap.lookup ident fields -> do
-                          given <- typecheck ctx expr
-                          if given == found
-                            then pure ty'
-                            else typeError found given
-      other -> typeError other ty'
+    fields <- assertType _TVariant (TVariant OMap.empty) ty'
+    case OMap.lookup ident fields of
+      Just found -> do
+        given <- typecheck ctx expr
+        if given == found
+          then pure ty'
+          else typeError found given
+      Nothing -> typeError (TVariant OMap.empty) ty'
 
   tcAlg ctx (Case term branches) = do
     ty <- typecheck ctx term
-    fields <- case ty of
-      TVariant fields -> pure fields
-      other -> typeError (TVariant OMap.empty) other
+    fields <- assertType _TVariant (TVariant OMap.empty) ty
     when (OMap.size branches /= OMap.size fields) $
       typeError ty (TVariant OMap.empty)
     checked <- traverse

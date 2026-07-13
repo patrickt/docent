@@ -31,9 +31,10 @@ instance TypeableF RecF where
     pure (TRecord fs)
   tcAlg ctx (Project t a) = do
     rec_ <- typecheck ctx t
-    case rec_ of
-      TRecord fields | Just ty <- Map.lookup a fields -> pure ty
-      other -> typeError (TRecord Map.empty) other
+    fields <- assertType _TRecord (TRecord Map.empty) rec_
+    case Map.lookup a fields of
+      Just ty -> pure ty
+      Nothing -> typeError (TRecord Map.empty) rec_
 
 instance EqAlg RecF where
   eqAlg (Record as) (Record bs) = do

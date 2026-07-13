@@ -31,10 +31,9 @@ instance TypeableF UniF where
     pure (forall_ sk tb)
   tcAlg ctx (TyApp e sigma) = do
     sigma' <- resolve sigma
-    te <- typecheck ctx e
-    case te of
-      TForall b -> pure (instantiate1 sigma' b)
-      other -> typeError (TForall (toScope TVoid)) other
+    given <- typecheck ctx e
+    body <- assertType _TForall (TForall (toScope TVoid)) given
+    pure (instantiate1 sigma' body)
 
 instance EqAlg UniF where
   eqAlg (TyLam n e) (TyLam n' e') = n == n' && eqTerm e e'

@@ -37,25 +37,21 @@ instance TypeableF ExiF where
   tcAlg ctx (Pack payload witness ann) = do
     witness' <- resolve witness
     ann' <- resolve ann
-    case ann' of
-      TExists within -> do
-        given <- typecheck ctx payload
-        let expected = instantiate1 witness' within
-        if given == expected
-          then pure ann'
-          else typeError expected given
-      other -> typeError (TExists (toScope TVoid)) other
+    within <- assertType _TExists (TExists (toScope TVoid)) ann'
+    given <- typecheck ctx payload
+    let expected = instantiate1 witness' within
+    if given == expected
+      then pure ann'
+      else typeError expected given
   tcAlg ctx (Unpack name val scope) = do
     te <- typecheck ctx val
-    case te of
-      TExists within -> do
-        sk <- freshTyVar name
-        let inner = instantiate1 (TVar sk) within
-        result <- withTyVar name sk (typecheck (unvar (const inner) ctx) (fromScope scope))
-        if sk `elem` result
-          then typeError (TExists (toScope TVoid)) result
-          else pure result
-      other -> typeError (TExists (toScope TVoid)) other
+    within <- assertType _TExists (TExists (toScope TVoid)) te
+    sk <- freshTyVar name
+    let inner = instantiate1 (TVar sk) within
+    result <- withTyVar name sk (typecheck (unvar (const inner) ctx) (fromScope scope))
+    if sk `elem` result
+      then typeError (TExists (toScope TVoid)) result
+      else pure result
 
 instance EqAlg ExiF where
   eqAlg (Pack p w a) (Pack p' w' a') = eqTerm p p' && w == w' && a == a'

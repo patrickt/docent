@@ -1,28 +1,42 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Docent.Type
-  ( Ty (..)
-  , TypeError (..)
-  , forall_
-  , mu_
-  , exists_
-  , prettyTy
-  , renderTy
-  , hasType
-  ) where
+  ( Ty (..),
+    TypeError (..),
+    forall_,
+    mu_,
+    exists_,
+    prettyTy,
+    renderTy,
+    hasType,
+    -- optics
+    _TVar,
+    _TString,
+    _TVoid,
+    _TFun,
+    _TRecord,
+    _TVariant,
+    _TForall,
+    _TMu, -- lol
+    _TExists,
+    assertType,
+  )
+where
 
 import Bound
+import Control.Effect.Error
 import Control.Monad (ap)
 import Data.Map.Ordered (OMap)
 import Data.Map.Ordered qualified as OMap
 import Data.Stream (Stream (..))
 import Data.Text (Text)
 import Data.Text qualified as T
-import Prettyprinter (Pretty (..), (<+>), defaultLayoutOptions, layoutPretty)
+import Docent.Ident
+import Optics
+import Prettyprinter (Pretty (..), defaultLayoutOptions, layoutPretty, (<+>))
 import Prettyprinter qualified as P
 import Prettyprinter.Render.Text (renderStrict)
-
-import Docent.Ident
 
 data Ty a
   = TVar a
@@ -36,37 +50,39 @@ data Ty a
   | TExists (Scope () Ty a)
   deriving (Functor, Foldable, Traversable)
 
+makePrisms ''Ty
+
 instance Applicative Ty where
   pure = TVar
   (<*>) = ap
 
 -- (>>=) is capture-avoiding substitution of types for type variables.
 instance Monad Ty where
-  TVar a      >>= k = k a
-  TString     >>= _ = TString
-  TVoid       >>= _ = TVoid
-  TFun d c    >>= k = TFun (d >>= k) (c >>= k)
-  TRecord fs  >>= k = TRecord (fmap (>>= k) fs)
+  TVar a >>= k = k a
+  TString >>= _ = TString
+  TVoid >>= _ = TVoid
+  TFun d c >>= k = TFun (d >>= k) (c >>= k)
+  TRecord fs >>= k = TRecord (fmap (>>= k) fs)
   TVariant fs >>= k = TVariant (fmap (>>= k) fs)
-  TForall b   >>= k = TForall (b >>>= k)
-  TMu b       >>= k = TMu (b >>>= k)
-  TExists b   >>= k = TExists (b >>>= k)
+  TForall b >>= k = TForall (b >>>= k)
+  TMu b >>= k = TMu (b >>>= k)
+  TExists b >>= k = TExists (b >>>= k)
 
 -- Comparing under fromScope compares de Bruijn structure, so (==) is
 -- alpha-equivalence.
-instance Eq a => Eq (Ty a) where
-  TVar a      == TVar b       = a == b
-  TString     == TString      = True
-  TVoid       == TVoid        = True
-  TFun d c    == TFun d' c'   = d == d' && c == c'
-  TRecord as  == TRecord bs   = OMap.assocs as == OMap.assocs bs
-  TVariant as == TVariant bs  = OMap.assocs as == OMap.assocs bs
-  TForall a   == TForall b    = fromScope a == fromScope b
-  TMu a       == TMu b        = fromScope a == fromScope b
-  TExists a   == TExists b    = fromScope a == fromScope b
-  _           == _            = False
+instance (Eq a) => Eq (Ty a) where
+  TVar a == TVar b = a == b
+  TString == TString = True
+  TVoid == TVoid = True
+  TFun d c == TFun d' c' = d == d' && c == c'
+  TRecord as == TRecord bs = OMap.assocs as == OMap.assocs bs
+  TVariant as == TVariant bs = OMap.assocs as == OMap.assocs bs
+  TForall a == TForall b = fromScope a == fromScope b
+  TMu a == TMu b = fromScope a == fromScope b
+  TExists a == TExists b = fromScope a == fromScope b
+  _ == _ = False
 
-forall_, mu_, exists_ :: Eq a => a -> Ty a -> Ty a
+forall_, mu_, exists_ :: (Eq a) => a -> Ty a -> Ty a
 forall_ x = TForall . abstract1 x
 mu_ x = TMu . abstract1 x
 exists_ x = TExists . abstract1 x
@@ -82,11 +98,12 @@ prettyTyPrec _ _ TString = "string"
 prettyTyPrec _ _ TVoid = "∅"
 prettyTyPrec d sup (TFun from to) =
   parensIf (d > funPrec) (prettyTyPrec (funPrec + 1) sup from <+> "→" <+> prettyTyPrec funPrec sup to)
-  where funPrec = 5
+  where
+    funPrec = 5
 prettyTyPrec _ sup (TRecord fields) =
-  P.group . P.braces . P.vsep . P.punctuate "," . fmap (uncurry (fieldWith sup ":")) . OMap.assocs $ fields
+  P.group . P.braces . P.nest 2 . P.vsep . P.punctuate "," . fmap (uncurry (fieldWith sup ":")) . OMap.assocs $ fields
 prettyTyPrec _ sup (TVariant fields) =
-  P.group . P.angles . P.vsep . P.punctuate "|" . fmap (uncurry (fieldWith sup ":")) . OMap.assocs $ fields
+  P.group . P.angles . P.nest 2 . P.vsep . P.punctuate "|" . fmap (uncurry (fieldWith sup ":")) . OMap.assocs $ fields
 prettyTyPrec d (Cons n rest) (TForall b) = prettyQuant d "∀" n rest b
 prettyTyPrec d (Cons n rest) (TMu b) = prettyQuant d "μ" n rest b
 prettyTyPrec d (Cons n rest) (TExists b) = prettyQuant d "∃" n rest b
@@ -115,10 +132,16 @@ hasType :: Stream Ident -> Ident -> Ty Ident -> P.Doc ann
 hasType sup name ty = pretty name <+> ":" <+> prettyTy sup ty
 
 data TypeError = TypeError (Ty Ident) (Ty Ident) -- expected, got
-  deriving Eq
+  deriving (Eq)
 
 instance Show TypeError where
   show = T.unpack . renderStrict . layoutPretty defaultLayoutOptions . pretty
 
 instance Pretty TypeError where
   pretty (TypeError ex got) = "type error: expected " <+> pretty ex <+> ", got" <+> pretty got
+
+assertType :: (Has (Error TypeError) sig m) => Prism' (Ty Ident) y -> Ty Ident -> Ty Ident -> m y
+assertType optic given val =
+  case (preview optic val) of
+    Just v -> pure v
+    Nothing -> throwError (TypeError given val)

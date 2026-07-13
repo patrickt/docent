@@ -26,10 +26,10 @@ data LamF t a
 
 instance PrettyAlg LamF where
   prettyAlg (Cons n rest) (Lam ty b) =
-    "fun" <+> P.parens (pretty n <+> ":" <+> prettyTy rest ty) <> "." <+> prettyTerm rest (instantiate1 (var n) b)
+    "fun" <+> P.parens (pretty n <+> ":" <+> prettyTy rest ty) <> "." <+> P.nest 2 (prettyTerm rest (instantiate1 (var n) b))
   prettyAlg sup (App f x) = prettyTerm sup f <+> prettyTerm sup x
   prettyAlg (Cons n rest) (Let e b) =
-    "let" <+> pretty n <+> "=" <+> prettyTerm rest e <+> "in" <+> prettyTerm rest (instantiate1 (var n) b)
+    "let" <+> pretty n <+> "=" <+> prettyTerm rest e <+> "in" <+> P.nest 2 (prettyTerm rest (instantiate1 (var n) b))
 
 instance HBind LamF where
   hbind k (Lam ty b) = Lam ty (b >>>= k)
@@ -40,10 +40,10 @@ instance TypeableF LamF where
   tcAlg ctx (App f x) = do
     tf <- typecheck ctx f
     tx <- typecheck ctx x
-    case tf of
-      TFun arg res | arg == tx -> pure res
-      TFun arg _               -> typeError arg tx
-      other                    -> typeError (TFun TString TString) other
+    (arg, res) <- assertType _TFun (TFun TString TString) tf
+    if arg == tx
+      then pure res
+      else typeError arg tx
   tcAlg ctx (Lam ty b) = do
     ty' <- resolve ty
     tb <- typecheck (unvar (const ty') ctx) (fromScope b)
