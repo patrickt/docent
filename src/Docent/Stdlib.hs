@@ -1,21 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Docent.Stdlib
-  ( list
-  , unit
-  , unitTy
-  , con
-  , nil
-  , cons
-  , map_
-  , append
-  , flatten
-  , join
-  ) where
+  ( list,
+    unit,
+    unitTy,
+    con,
+    nil,
+    cons,
+    map_,
+    append,
+    flatten,
+    join,
+  )
+where
 
 import Bound (instantiate1)
 import Data.Map.Ordered qualified as OMap
-
 import Docent.Ident (Ident)
 import Docent.Lang (Sig)
 import Docent.Sum (Term, var)
@@ -32,7 +32,7 @@ unitTy :: Ty Ident
 unitTy = TRecord OMap.empty
 
 unit :: Term Sig Ident
-unit = record_([] :: [(Ident, Term Sig Ident)])
+unit = record_ ([] :: [(Ident, Term Sig Ident)])
 
 -- τ list ≜ μt. ⟨nil : () | cons : {hd : τ, tail : t}⟩
 -- The recursion binder is "t" so that instantiating at a type with "α" free
@@ -40,10 +40,13 @@ unit = record_([] :: [(Ident, Term Sig Ident)])
 list :: Ty Ident -> Ty Ident
 list elemTy = mu_ "t" (body (TVar "t"))
   where
-    body tl = TVariant (OMap.fromList
-      [ ("nil", unitTy)
-      , ("cons", TRecord (OMap.fromList [("hd", elemTy), ("tail", tl)]))
-      ])
+    body tl =
+      TVariant
+        ( OMap.fromList
+            [ ("nil", unitTy),
+              ("cons", TRecord (OMap.fromList [("hd", elemTy), ("tail", tl)]))
+            ]
+        )
 
 -- ℓ_{μα.τ} e ≜ fold [μα.τ] (inject e at ℓ as τ[α ↦ μα.τ])
 con :: Ident -> Ty Ident -> Term Sig Ident -> Term Sig Ident
@@ -54,22 +57,28 @@ nil :: Ty Ident -> Term Sig Ident
 nil a = con "nil" (list a) unit
 
 cons :: Ty Ident -> Term Sig Ident -> Term Sig Ident -> Term Sig Ident
-cons a hd tl = con "cons" (list a) (record_[("hd", hd), ("tail", tl)])
+cons a hd tl = con "cons" (list a) (record_ [("hd", hd), ("tail", tl)])
 
 -- map : ∀α,β. (α → β) → α list → β list
 map_ :: Term Sig Ident
 map_ =
-  tyLam "α" $ tyLam "β" $
-    fix_ "map" (TFun (TFun a b) (TFun (list a) (list b))) $
-      lam "f" (TFun a b) $
-        lam "xs" (list a) $
-          case_ (unfold_ (var "xs"))
-            [ Branch "nil" "u" (nil b)
-            , Branch "cons" "c"
-                (cons b
-                  (app (var "f") (project_ (var "c") "hd"))
-                  (app (app (var "map") (var "f")) (project_ (var "c") "tail")))
-            ]
+  tyLam "α" $
+    tyLam "β" $
+      fix_ "map" (TFun (TFun a b) (TFun (list a) (list b))) $
+        lam "f" (TFun a b) $
+          lam "xs" (list a) $
+            case_
+              (unfold_ (var "xs"))
+              [ Branch "nil" "u" (nil b),
+                Branch
+                  "cons"
+                  "c"
+                  ( cons
+                      b
+                      (app (var "f") (project_ (var "c") "hd"))
+                      (app (app (var "map") (var "f")) (project_ (var "c") "tail"))
+                  )
+              ]
   where
     a = TVar "α"
     b = TVar "β"
@@ -81,12 +90,17 @@ append =
     fix_ "append" (TFun (list a) (TFun (list a) (list a))) $
       lam "xs" (list a) $
         lam "ys" (list a) $
-          case_ (unfold_ (var "xs"))
-            [ Branch "nil" "u" (var "ys")
-            , Branch "cons" "c"
-                (cons a
-                  (project_ (var "c") "hd")
-                  (app (app (var "append") (project_ (var "c") "tail")) (var "ys")))
+          case_
+            (unfold_ (var "xs"))
+            [ Branch "nil" "u" (var "ys"),
+              Branch
+                "cons"
+                "c"
+                ( cons
+                    a
+                    (project_ (var "c") "hd")
+                    (app (app (var "append") (project_ (var "c") "tail")) (var "ys"))
+                )
             ]
   where
     a = TVar "α"
@@ -97,11 +111,16 @@ flatten =
   tyLam "α" $
     fix_ "flatten" (TFun (list (list a)) (list a)) $
       lam "xss" (list (list a)) $
-        case_ (unfold_ (var "xss"))
-          [ Branch "nil" "u" (nil a)
-          , Branch "cons" "c"
-              (app (app (tyApp append a) (project_ (var "c") "hd"))
-                   (app (var "flatten") (project_ (var "c") "tail")))
+        case_
+          (unfold_ (var "xss"))
+          [ Branch "nil" "u" (nil a),
+            Branch
+              "cons"
+              "c"
+              ( app
+                  (app (tyApp append a) (project_ (var "c") "hd"))
+                  (app (var "flatten") (project_ (var "c") "tail"))
+              )
           ]
   where
     a = TVar "α"
@@ -111,8 +130,11 @@ join :: Term Sig Ident
 join =
   fix_ "join" (TFun (list TString) TString) $
     lam "xs" (list TString) $
-      case_ (unfold_ (var "xs"))
-        [ Branch "nil" "u" (eString "")
-        , Branch "cons" "c"
+      case_
+        (unfold_ (var "xs"))
+        [ Branch "nil" "u" (eString ""),
+          Branch
+            "cons"
+            "c"
             (concat_ (project_ (var "c") "hd") (app (var "join") (project_ (var "c") "tail")))
         ]

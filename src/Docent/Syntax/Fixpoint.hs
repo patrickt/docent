@@ -21,7 +21,7 @@ data FixF t a = Fix (Ty Ident) (Scope () t a)
 
 instance PrettyAlg FixF where
   prettyAlg (Cons n rest) (Fix ty body) =
-    "fix" <+> P.parens (hasType n ty) <> "." <+> prettyTerm rest (instantiate1 (var n) body)
+    "fix" <+> P.parens (hasType rest n ty) <> "." <+> prettyTerm rest (instantiate1 (var n) body)
 
 instance HBind FixF where
   hbind k (Fix ty expr) = Fix ty (expr >>>= k)

@@ -35,7 +35,7 @@ instance HBind VntF where
 instance PrettyAlg VntF where
   prettyAlg sup (Inject i ty term) = P.hsep ["inject", prettyTerm sup term,
                                              "at", pretty i,
-                                             "as", pretty ty
+                                             "as", prettyTy sup ty
                                             ]
   prettyAlg c@(Cons n rest) (Case term branches) = "case" <+> prettyTerm c term <+> P.braces (P.vsep body) where
     body = fmap (uncurry go) (OMap.assocs branches)

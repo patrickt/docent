@@ -29,7 +29,7 @@ instance HBind ExiF where
 
 instance PrettyAlg ExiF where
   prettyAlg sup (Pack payload witness annotation) =
-    "pack" <+> prettyTerm sup payload <+> "as ∃" <> pretty witness <> "." <> pretty annotation
+    "pack" <+> prettyTerm sup payload <+> "as ∃" <> prettyTy sup witness <> "." <> prettyTy sup annotation
   prettyAlg (Cons n rest) (Unpack name val scope) =
     "unpack" <+> P.parens (pretty name <> "," <> prettyTerm rest val) <+> "=" <+> prettyTerm rest (instantiate1 (var n) scope)
 

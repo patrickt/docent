@@ -84,9 +84,9 @@ prettyTyPrec d sup (TFun from to) =
   parensIf (d > funPrec) (prettyTyPrec (funPrec + 1) sup from <+> "→" <+> prettyTyPrec funPrec sup to)
   where funPrec = 5
 prettyTyPrec _ sup (TRecord fields) =
-  P.braces . P.vsep . P.punctuate "," . fmap (uncurry (fieldWith sup ":")) . OMap.assocs $ fields
+  P.group . P.braces . P.vsep . P.punctuate "," . fmap (uncurry (fieldWith sup ":")) . OMap.assocs $ fields
 prettyTyPrec _ sup (TVariant fields) =
-  P.angles . P.vsep . P.punctuate "|" . fmap (uncurry (fieldWith sup ":")) . OMap.assocs $ fields
+  P.group . P.angles . P.vsep . P.punctuate "|" . fmap (uncurry (fieldWith sup ":")) . OMap.assocs $ fields
 prettyTyPrec d (Cons n rest) (TForall b) = prettyQuant d "∀" n rest b
 prettyTyPrec d (Cons n rest) (TMu b) = prettyQuant d "μ" n rest b
 prettyTyPrec d (Cons n rest) (TExists b) = prettyQuant d "∃" n rest b
@@ -111,8 +111,8 @@ instance Pretty (Ty Ident) where
 instance Show (Ty Ident) where
   show = T.unpack . renderTy
 
-hasType :: Ident -> Ty Ident -> P.Doc ann
-hasType name ty = pretty name <+> ":" <+> pretty ty
+hasType :: Stream Ident -> Ident -> Ty Ident -> P.Doc ann
+hasType sup name ty = pretty name <+> ":" <+> prettyTy sup ty
 
 data TypeError = TypeError (Ty Ident) (Ty Ident) -- expected, got
   deriving Eq

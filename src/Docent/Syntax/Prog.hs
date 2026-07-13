@@ -26,7 +26,7 @@ data LamF t a
 
 instance PrettyAlg LamF where
   prettyAlg (Cons n rest) (Lam ty b) =
-    "fun" <+> P.parens (pretty n <+> ":" <+> pretty ty) <> "." <+> prettyTerm rest (instantiate1 (var n) b)
+    "fun" <+> P.parens (pretty n <+> ":" <+> prettyTy rest ty) <> "." <+> prettyTerm rest (instantiate1 (var n) b)
   prettyAlg sup (App f x) = prettyTerm sup f <+> prettyTerm sup x
   prettyAlg (Cons n rest) (Let e b) =
     "let" <+> pretty n <+> "=" <+> prettyTerm rest e <+> "in" <+> prettyTerm rest (instantiate1 (var n) b)
