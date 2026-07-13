@@ -40,7 +40,7 @@ instance TypeableF LamF where
   tcAlg ctx (App f x) = do
     tf <- typecheck ctx f
     tx <- typecheck ctx x
-    (arg, res) <- assertType _TFun (TFun TString TString) tf
+    (arg, res) <- assertType _TFun (TFun TVoid TVoid) tf
     if arg == tx
       then pure res
       else typeError arg tx

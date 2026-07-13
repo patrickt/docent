@@ -42,6 +42,7 @@ library
                       Docent.Typecheck
     build-depends:    Stream
                     , bound
+                    , containers
                     , ordered-containers
                     , optics
                     , optics-th

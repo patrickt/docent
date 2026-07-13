@@ -12,7 +12,6 @@ module Docent.Optics
     _Unfold,
     _Pack,
     _TyLam,
-    X._TVariant,
     require
   )
 where

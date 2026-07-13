@@ -3,14 +3,15 @@
 
 module Docent.Type
   ( Ty (..),
-    TypeError (..),
+    -- | smart ctors
     forall_,
     mu_,
     exists_,
+    -- | retty-printing
     prettyTy,
     renderTy,
     hasType,
-    -- optics
+    -- | optics
     _TVar,
     _TString,
     _TVoid,
@@ -20,6 +21,8 @@ module Docent.Type
     _TForall,
     _TMu, -- lol
     _TExists,
+    -- | Errors
+    TypeError (..),
     assertType,
   )
 where
