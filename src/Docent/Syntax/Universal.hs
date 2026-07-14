@@ -1,24 +1,31 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Docent.Syntax.Universal
-  ( UniF (..)
-  , tyLam
-  , tyApp
-  ) where
+  ( UniF (..),
+    _TyLam,
+    _TyApp,
+    tyLam,
+    tyApp,
+  )
+where
 
 import Bound
-import Prettyprinter (pretty, (<+>))
-import Prettyprinter qualified as P
-
+import Docent.Algebra
+import Docent.FreeVars
 import Docent.Ident (Ident)
 import Docent.Sum
 import Docent.Type
 import Docent.Typecheck
-import Docent.Algebra
+import Prettyprinter (pretty, (<+>))
+import Prettyprinter qualified as P
+import Optics (makePrisms)
 
 data UniF t a
-  = TyLam Ident (t a)      -- Λα. e; α is a named type variable scoping over e's annotations
+  = TyLam Ident (t a) -- Λα. e; α is a named type variable scoping over e's annotations
   | TyApp (t a) (Ty Ident) -- e [σ]
+
+makePrisms ''UniF
 
 instance HBind UniF where
   hbind k (TyLam n e) = TyLam n (e >>= k)
@@ -43,6 +50,10 @@ instance EqAlg UniF where
 instance PrettyAlg UniF where
   prettyAlg sup (TyLam n e) = "Λ" <> pretty n <> "." <+> prettyTerm sup e
   prettyAlg sup (TyApp e ty) = prettyTerm sup e <+> P.brackets (prettyTy sup ty)
+
+instance FreeVarsAlg UniF where
+  freeVarsAlg (TyLam _ e) = freeVars e
+  freeVarsAlg (TyApp e _ty) = freeVars e
 
 tyLam :: (UniF :<: s) => Ident -> Term s a -> Term s a
 tyLam n e = inject (TyLam n e)

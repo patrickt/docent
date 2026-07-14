@@ -1,8 +1,11 @@
 {-# LANGUAGE GHC2024 #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Docent.Syntax.Existential
   ( ExiF (..),
+    _Pack,
+    _Unpack,
     pack_,
     unpack_,
   )
@@ -10,18 +13,25 @@ where
 
 import Bound
 import Bound.Var (unvar)
+import Data.Set qualified as Set
 import Data.Stream
 import Docent.Algebra
+import Docent.FreeVars
 import Docent.Ident
 import Docent.Sum
 import Docent.Type
 import Docent.Typecheck
+import Docent.Util
+import Optics
 import Prettyprinter (pretty, (<+>))
 import Prettyprinter qualified as P
+import Docent.Optics (_Free)
 
 data ExiF t a
   = Pack (t a) (Ty Ident) (Ty Ident) -- payload, witness, annotation
   | Unpack Ident (t a) (Scope () t a)
+
+makePrisms ''ExiF
 
 instance HBind ExiF where
   hbind k (Pack p w a) = Pack (p >>= k) w a
@@ -57,6 +67,13 @@ instance EqAlg ExiF where
   eqAlg (Pack p w a) (Pack p' w' a') = eqTerm p p' && w == w' && a == a'
   eqAlg (Unpack n v s) (Unpack n' v' s') = n == n' && eqTerm v v' && eqTerm (fromScope s) (fromScope s')
   eqAlg _ _ = False
+
+instance FreeVarsAlg ExiF where
+  freeVarsAlg (Pack payload _w _a) = freeVars payload
+  freeVarsAlg (Unpack _ payload body) = do
+    let v = freeVars payload
+    let b = mapMaybeSet (preview _Free) (freeVars (fromScope body))
+    v `Set.union` b
 
 pack_ :: (ExiF :<: s) => Term s a -> Ty Ident -> Ty Ident -> Term s a
 pack_ payload witness annotation = inject (Pack payload witness annotation)

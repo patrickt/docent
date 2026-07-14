@@ -25,6 +25,7 @@ common shared
 library
     import:           shared
     exposed-modules:  Docent.Algebra
+                      Docent.FreeVars
                       Docent.Ident
                       Docent.Lang
                       Docent.Optics
@@ -40,6 +41,7 @@ library
                       Docent.Syntax.Variant
                       Docent.Type
                       Docent.Typecheck
+                      Docent.Util
     build-depends:    Stream
                     , bound
                     , containers

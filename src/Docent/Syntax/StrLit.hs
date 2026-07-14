@@ -1,7 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Docent.Syntax.StrLit
   ( StrF (..)
+  , _EString
+  , _Concat
   , eString
   , concat_
   ) where
@@ -14,10 +18,14 @@ import Docent.Sum
 import Docent.Type
 import Docent.Algebra
 import Docent.Typecheck
+import Docent.FreeVars
+import Optics (makePrisms)
 
 data StrF t a
   = EString Text
   | Concat (t a) (t a)
+
+makePrisms ''StrF
 
 instance HBind StrF where
   hbind _ (EString s)  = EString s
@@ -37,6 +45,9 @@ instance EqAlg StrF where
   eqAlg (EString a)  (EString b)  = a == b
   eqAlg (Concat a b) (Concat c d) = eqTerm a c && eqTerm b d
   eqAlg _            _            = False
+
+instance FreeVarsAlg StrF where
+  freeVarsAlg _ = mempty
 
 eString :: (StrF :<: s) => Text -> Term s a
 eString s = inject (EString s)

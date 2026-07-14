@@ -16,6 +16,10 @@ import Docent.Type
 import Docent.Typecheck
 import Prettyprinter ((<+>))
 import Prettyprinter qualified as P
+import Docent.FreeVars
+import Docent.Optics (_Free)
+import Optics (preview)
+import Docent.Util
 
 data FixF t a = Fix (Ty Ident) (Scope () t a)
 
@@ -36,6 +40,9 @@ instance TypeableF FixF where
     if ty' == tb
       then pure ty'
       else typeError ty' tb
+
+instance FreeVarsAlg FixF where
+  freeVarsAlg (Fix _ty s) = mapMaybeSet (preview _Free) (freeVars (fromScope s))
 
 fix_ :: (FixF :<: s, HBind s, Eq a) => a -> Ty Ident -> Term s a -> Term s a
 fix_ x ty body = inject (Fix ty (abstract1 x body))

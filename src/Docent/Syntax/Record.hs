@@ -1,25 +1,34 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Docent.Syntax.Record
-  ( RecF (..)
-  , record_
-  , project_
-  ) where
+{-# LANGUAGE TemplateHaskell #-}
 
+module Docent.Syntax.Record
+  ( RecF (..),
+    _Record,
+    _Project,
+    record_,
+    project_,
+  )
+where
+
+import Data.Foldable qualified as Foldable
 import Data.Map.Ordered (OMap)
 import Data.Map.Ordered qualified as Map
-import Prettyprinter (Pretty (..), (<+>))
-import Prettyprinter qualified as P
-
+import Docent.Algebra
+import Docent.FreeVars
 import Docent.Ident (Ident)
 import Docent.Sum
 import Docent.Type
 import Docent.Typecheck
-import Docent.Algebra
 import GHC.Exts
+import Optics (makePrisms)
+import Prettyprinter (Pretty (..), (<+>))
+import Prettyprinter qualified as P
 
 data RecF t a
   = Record (OMap Ident (t a))
   | Project (t a) Ident
+
+makePrisms ''RecF
 
 instance HBind RecF where
   hbind k (Record fields) = Record (fmap (>>= k) fields)
@@ -44,6 +53,10 @@ instance EqAlg RecF where
     length aFields == length bFields && all id (zipWith go aFields bFields)
   eqAlg (Project a f) (Project b g) = eqTerm a b && f == g
   eqAlg _ _ = False
+
+instance FreeVarsAlg RecF where
+  freeVarsAlg (Record fields) = let t = fmap freeVars fields in mconcat (Foldable.toList t)
+  freeVarsAlg (Project into _) = freeVars into
 
 record_ :: (IsList l, Item l ~ (Ident, Term s a), RecF :<: s) => l -> Term s a
 record_ fields = inject (Record (Map.fromList (toList fields)))
