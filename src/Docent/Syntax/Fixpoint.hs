@@ -44,5 +44,8 @@ instance TypeableF FixF where
 instance FreeVarsAlg FixF where
   freeVarsAlg (Fix _ty s) = mapMaybeSet (preview _Free) (freeVars (fromScope s))
 
+instance FreeTyVarsAlg FixF where
+  freeTyVarsAlg (Fix typ body) = setFromList typ <> freeTyVars (fromScope body)
+
 fix_ :: (FixF :<: s, HBind s, Eq a) => a -> Ty Ident -> Term s a -> Term s a
 fix_ x ty body = inject (Fix ty (abstract1 x body))

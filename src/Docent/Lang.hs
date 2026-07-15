@@ -68,11 +68,11 @@ instance Pretty EvalError where
 
 eval :: (Has (Error EvalError) sig m) => Term Sig a -> m (Term Sig a)
 eval (Var a) = pure (Var a)
-eval v@(Match (EString _)) = pure v
+eval v@(Match (String _)) = pure v
 eval (Match (Concat a b)) = do
-  a' <- eval a >>= require (O._Term % _EString) NonStringConcat
-  b' <- eval b >>= require (O._Term % _EString) NonStringConcat
-  pure (eString (a' <> b'))
+  a' <- eval a >>= require (O._Term % _String) NonStringConcat
+  b' <- eval b >>= require (O._Term % _String) NonStringConcat
+  pure (string_ (a' <> b'))
 eval v@(Match (Lam _ _)) = pure v
 eval (Match (App f x)) = do
   (_, b) <- eval f >>= require (O._Term % _Lam) NonFunctionApplication

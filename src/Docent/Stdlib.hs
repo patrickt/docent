@@ -23,7 +23,7 @@ import Docent.Syntax.Fixpoint (fix_)
 import Docent.Syntax.Mu (fold_, unfold_)
 import Docent.Syntax.Prog (app, lam)
 import Docent.Syntax.Record (project_, record_)
-import Docent.Syntax.StrLit (concat_, eString)
+import Docent.Syntax.StrLit (concat_, string_)
 import Docent.Syntax.Universal (tyApp, tyLam)
 import Docent.Syntax.Variant (Branch (..), case_, inject_)
 import Docent.Type
@@ -132,7 +132,7 @@ join =
     lam "xs" (list TString) $
       case_
         (unfold_ (var "xs"))
-        [ Branch "nil" "u" (eString ""),
+        [ Branch "nil" "u" (string_ ""),
           Branch
             "cons"
             "c"

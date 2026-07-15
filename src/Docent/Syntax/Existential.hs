@@ -75,6 +75,12 @@ instance FreeVarsAlg ExiF where
     let b = mapMaybeSet (preview _Free) (freeVars (fromScope body))
     v `Set.union` b
 
+instance FreeTyVarsAlg ExiF where
+  freeTyVarsAlg (Pack payload witness annotation)
+    = freeTyVars payload <> setFromList witness <> setFromList annotation
+  freeTyVarsAlg (Unpack nam term body)
+    = freeTyVars term <> Set.delete nam (freeTyVars (fromScope body))
+
 pack_ :: (ExiF :<: s) => Term s a -> Ty Ident -> Ty Ident -> Term s a
 pack_ payload witness annotation = inject (Pack payload witness annotation)
 

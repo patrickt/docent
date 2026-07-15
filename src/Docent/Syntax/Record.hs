@@ -58,6 +58,10 @@ instance FreeVarsAlg RecF where
   freeVarsAlg (Record fields) = let t = fmap freeVars fields in mconcat (Foldable.toList t)
   freeVarsAlg (Project into _) = freeVars into
 
+instance FreeTyVarsAlg RecF where
+  freeTyVarsAlg (Record fields) = mconcat . fmap freeTyVars . Foldable.toList $ fields
+  freeTyVarsAlg (Project bod _) = freeTyVars bod
+
 record_ :: (IsList l, Item l ~ (Ident, Term s a), RecF :<: s) => l -> Term s a
 record_ fields = inject (Record (Map.fromList (toList fields)))
 

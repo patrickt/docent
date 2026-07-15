@@ -106,6 +106,13 @@ instance FreeVarsAlg VntF where
         c = mconcat . fmap (mapMaybeSet (preview _Free)) . Foldable.toList $ b
      in a <> c
 
+instance FreeTyVarsAlg VntF where
+  freeTyVarsAlg (Inject _ ty body) = setFromList ty <> freeTyVars body
+  freeTyVarsAlg (Case target cases) = do
+    let a = freeTyVars target
+    let b = mconcat . fmap (freeTyVars . fromScope) . Foldable.toList $ cases
+    a <> b
+
 inject_ :: (VntF :<: s) => Ident -> Ty Ident -> Term s a -> Term s a
 inject_ i ty term = inject (Inject i ty term)
 

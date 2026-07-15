@@ -78,6 +78,11 @@ instance FreeVarsAlg LamF where
     let v = freeVars name
     b `Set.union` v
 
+instance FreeTyVarsAlg LamF where
+  freeTyVarsAlg (Lam argTy body) = setFromList argTy <> freeTyVars (fromScope body)
+  freeTyVarsAlg (App fn arg) = freeTyVars fn <> freeTyVars arg
+  freeTyVarsAlg (Let nam body) = freeTyVars nam <> freeTyVars (fromScope body)
+
 lam :: (LamF :<: s, HBind s, Eq a) => a -> Ty Ident -> Term s a -> Term s a
 lam x ty body = inject (Lam ty (abstract1 x body))
 

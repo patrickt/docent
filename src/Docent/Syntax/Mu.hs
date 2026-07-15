@@ -17,9 +17,10 @@ import Docent.Ident (Ident)
 import Docent.Sum
 import Docent.Type
 import Docent.Typecheck
+import Docent.Util
+import Optics (makePrisms)
 import Prettyprinter ((<+>))
 import Prettyprinter qualified as P
-import Optics (makePrisms)
 
 -- fold [μα.τ] e rolls e : τ[α ↦ μα.τ] up into μα.τ; unfold unrolls it again.
 -- this is like Fix/Unfix but works on the type-level to provide access to the
@@ -60,6 +61,10 @@ instance PrettyAlg MuF where
 instance FreeVarsAlg MuF where
   freeVarsAlg (Fold _ v) = freeVars v
   freeVarsAlg (Unfold v) = freeVars v
+
+instance FreeTyVarsAlg MuF where
+  freeTyVarsAlg (Fold t body) = setFromList t <> freeTyVars body
+  freeTyVarsAlg (Unfold body) = freeTyVars body
 
 fold_ :: (MuF :<: s) => Ty Ident -> Term s a -> Term s a
 fold_ ty e = inject (Fold ty e)

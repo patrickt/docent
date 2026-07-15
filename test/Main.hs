@@ -18,7 +18,7 @@ import Docent.Ident qualified as Ident
 import Docent.Sum (Term, var)
 import Docent.Type (Ty (..), exists_, forall_, mu_, renderTy)
 import Docent.Algebra (eqTerm)
-import Docent.Syntax.StrLit (eString, concat_)
+import Docent.Syntax.StrLit (string_, concat_)
 import Docent.Syntax.Prog (lam, app, let_)
 import Docent.Stdlib qualified as Std
 import Docent.Syntax.Existential (pack_, unpack_)
@@ -58,22 +58,22 @@ evalFailsWith t err = case runEval t of
 prop_typecheckString :: Property
 prop_typecheckString = property $ do
   s <- forAll genText
-  eString s `typechecksTo` TString
+  string_ s `typechecksTo` TString
 
 prop_evalString :: Property
 prop_evalString = property $ do
   s <- forAll genText
-  eString s `evalsTo` eString s
+  string_ s `evalsTo` string_ s
 
 prop_evalConcat :: Property
 prop_evalConcat = property $ do
   a <- forAll genText
   b <- forAll genText
-  concat_ (eString a) (eString b) `evalsTo` eString (a <> b)
+  concat_ (string_ a) (string_ b) `evalsTo` string_ (a <> b)
 
 -- let x = a in x + (b + x)
 letProg :: Text -> Text -> Term Sig Ident
-letProg a b = let_ "x" (eString a) (concat_ (var "x") (concat_ (eString b) (var "x")))
+letProg a b = let_ "x" (string_ a) (concat_ (var "x") (concat_ (string_ b) (var "x")))
 
 prop_typecheckLet :: Property
 prop_typecheckLet = property $ do
@@ -85,11 +85,11 @@ prop_evalLet :: Property
 prop_evalLet = property $ do
   a <- forAll genText
   b <- forAll genText
-  letProg a b `evalsTo` eString (a <> b <> a)
+  letProg a b `evalsTo` string_ (a <> b <> a)
 
 -- (\x:string. x) s
 appProg :: Text -> Term Sig Ident
-appProg s = app (lam "x" TString (var "x")) (eString s)
+appProg s = app (lam "x" TString (var "x")) (string_ s)
 
 prop_typecheckApp :: Property
 prop_typecheckApp = property $ do
@@ -99,19 +99,19 @@ prop_typecheckApp = property $ do
 prop_evalApp :: Property
 prop_evalApp = property $ do
   s <- forAll genText
-  appProg s `evalsTo` eString s
+  appProg s `evalsTo` string_ s
 
 prop_evalNonFunction :: Property
 prop_evalNonFunction = property $ do
   a <- forAll genText
   b <- forAll genText
-  app (eString a) (eString b) `evalFailsWith` NonFunctionApplication
+  app (string_ a) (string_ b) `evalFailsWith` NonFunctionApplication
 
 prop_evalMissingField :: Property
 prop_evalMissingField = property $ do
   names <- forAll genFieldNames
   missing <- forAll (Gen.filter (`notElem` names) genIdent)
-  let fields = [(n, eString (Ident.toText n)) | n <- names]
+  let fields = [(n, string_ (Ident.toText n)) | n <- names]
   project_ (record_ fields) missing `evalFailsWith` MissingField missing
 
 prop_tyAlphaEq :: Property
@@ -136,7 +136,7 @@ nil :: Term Sig Ident
 nil = fold_ strList (inject_ "nil" strListUnrolled (record_ ([] :: [(Ident, Term Sig Ident)])))
 
 cons :: Text -> Term Sig Ident -> Term Sig Ident
-cons s xs = fold_ strList (inject_ "cons" strListUnrolled (record_ [("head", eString s), ("tail", xs)]))
+cons s xs = fold_ strList (inject_ "cons" strListUnrolled (record_ [("head", string_ s), ("tail", xs)]))
 
 prop_typecheckFold :: Property
 prop_typecheckFold = property $ do
@@ -151,23 +151,23 @@ prop_typecheckUnfold = property $ do
 prop_evalUnfoldFold :: Property
 prop_evalUnfoldFold = property $ do
   s <- forAll genText
-  unfold_ (fold_ strList (eString s)) `evalsTo` eString s
+  unfold_ (fold_ strList (string_ s)) `evalsTo` string_ s
 
 prop_evalUnfoldNonFold :: Property
 prop_evalUnfoldNonFold = property $ do
   s <- forAll genText
-  unfold_ (eString s) `evalFailsWith` NonFoldUnfold
+  unfold_ (string_ s) `evalFailsWith` NonFoldUnfold
 
 prop_evalUnpackPack :: Property
 prop_evalUnpackPack = property $ do
   s <- forAll genText
-  let pkg = pack_ (eString s) TString (exists_ "a" (TVar "a"))
-  unpack_ "x" "a" pkg (var "x") `evalsTo` eString s
+  let pkg = pack_ (string_ s) TString (exists_ "a" (TVar "a"))
+  unpack_ "x" "a" pkg (var "x") `evalsTo` string_ s
 
 prop_evalUnpackNonPack :: Property
 prop_evalUnpackNonPack = property $ do
   s <- forAll genText
-  unpack_ "x" "a" (eString s) (var "x") `evalFailsWith` NonPackUnpack
+  unpack_ "x" "a" (string_ s) (var "x") `evalFailsWith` NonPackUnpack
 
 prop_typecheckTyLam :: Property
 prop_typecheckTyLam = withTests 1 . property $
@@ -182,15 +182,15 @@ prop_typecheckTyLamShadow = withTests 1 . property $
 prop_evalTyApp :: Property
 prop_evalTyApp = property $ do
   s <- forAll genText
-  app (tyApp (tyLam "a" (lam "x" (TVar "a") (var "x"))) TString) (eString s) `evalsTo` eString s
+  app (tyApp (tyLam "a" (lam "x" (TVar "a") (var "x"))) TString) (string_ s) `evalsTo` string_ s
 
 prop_evalTyAppNonTyLam :: Property
 prop_evalTyAppNonTyLam = property $ do
   s <- forAll genText
-  tyApp (eString s) TString `evalFailsWith` NonTypeAbstraction
+  tyApp (string_ s) TString `evalFailsWith` NonTypeAbstraction
 
 strs :: [Text] -> Term Sig Ident
-strs = foldr (Std.cons TString . eString) (Std.nil TString)
+strs = foldr (Std.cons TString . string_) (Std.nil TString)
 
 prop_stdlibTypes :: Property
 prop_stdlibTypes = withTests 1 . property $ do
@@ -206,28 +206,28 @@ prop_stdlibTypes = withTests 1 . property $ do
 prop_stdlibJoin :: Property
 prop_stdlibJoin = property $ do
   ss <- forAll (Gen.list (Range.linear 0 5) genText)
-  app Std.join (strs ss) `evalsTo` eString (mconcat ss)
+  app Std.join (strs ss) `evalsTo` string_ (mconcat ss)
 
 prop_stdlibAppend :: Property
 prop_stdlibAppend = property $ do
   xs <- forAll (Gen.list (Range.linear 0 4) genText)
   ys <- forAll (Gen.list (Range.linear 0 4) genText)
   app Std.join (app (app (tyApp Std.append TString) (strs xs)) (strs ys))
-    `evalsTo` eString (mconcat (xs <> ys))
+    `evalsTo` string_ (mconcat (xs <> ys))
 
 prop_stdlibMap :: Property
 prop_stdlibMap = property $ do
   ss <- forAll (Gen.list (Range.linear 0 4) genText)
-  let bang = lam "s" TString (concat_ (var "s") (eString "!"))
+  let bang = lam "s" TString (concat_ (var "s") (string_ "!"))
   app Std.join (app (app (tyApp (tyApp Std.map_ TString) TString) bang) (strs ss))
-    `evalsTo` eString (mconcat (map (<> "!") ss))
+    `evalsTo` string_ (mconcat (map (<> "!") ss))
 
 prop_stdlibFlatten :: Property
 prop_stdlibFlatten = property $ do
   sss <- forAll (Gen.list (Range.linear 0 3) (Gen.list (Range.linear 0 3) genText))
   let obj = foldr (Std.cons (Std.list TString) . strs) (Std.nil (Std.list TString)) sss
   app Std.join (app (tyApp Std.flatten TString) obj)
-    `evalsTo` eString (mconcat (mconcat sss))
+    `evalsTo` string_ (mconcat (mconcat sss))
 
 prop_renderTyPrec :: Property
 prop_renderTyPrec = withTests 1 . property $ do
@@ -253,21 +253,21 @@ prop_typecheckRecord :: Property
 prop_typecheckRecord = property $ do
   names <- forAll genFieldNames
   vals <- forAll (Gen.list (Range.singleton (length names)) genText)
-  let fields = zipWith (\n v -> (n, eString v)) names vals
+  let fields = zipWith (\n v -> (n, string_ v)) names vals
   record_ fields `typechecksTo` TRecord (Map.fromList [(n, TString) | n <- names])
 
 prop_typecheckProject :: Property
 prop_typecheckProject = property $ do
   names <- forAll genFieldNames
   target <- forAll (Gen.element names)
-  let fields = [(n, eString (Ident.toText n)) | n <- names]
+  let fields = [(n, string_ (Ident.toText n)) | n <- names]
   project_ (record_ fields) target `typechecksTo` TString
 
 prop_typecheckProjectMissing :: Property
 prop_typecheckProjectMissing = property $ do
   names <- forAll genFieldNames
   missing <- forAll (Gen.filter (`notElem` names) genIdent)
-  let fields = [(n, eString (Ident.toText n)) | n <- names]
+  let fields = [(n, string_ (Ident.toText n)) | n <- names]
   let result = runTypecheck noFree (project_ (record_ fields) missing :: Term Sig Ident)
   annotateShow result
   assert (isLeft result)
@@ -276,7 +276,7 @@ prop_evalRecord :: Property
 prop_evalRecord = property $ do
   names <- forAll genFieldNames
   vals <- forAll (Gen.list (Range.singleton (length names)) genText)
-  let fields = zipWith (\n v -> (n, eString v)) names vals
+  let fields = zipWith (\n v -> (n, string_ v)) names vals
   record_ fields `evalsTo` record_ fields
 
 prop_evalProject :: Property
@@ -284,28 +284,28 @@ prop_evalProject = property $ do
   names <- forAll genFieldNames
   vals <- forAll (Gen.list (Range.singleton (length names)) genText)
   (target, expected) <- forAll (Gen.element (zip names vals))
-  let fields = zipWith (\n v -> (n, eString v)) names vals
-  project_ (record_ fields) target `evalsTo` eString expected
+  let fields = zipWith (\n v -> (n, string_ v)) names vals
+  project_ (record_ fields) target `evalsTo` string_ expected
 
 prop_projectForcesField :: Property
 prop_projectForcesField = property $ do
   n <- forAll genIdent
   a <- forAll genText
   b <- forAll genText
-  project_ (record_ [(n, concat_ (eString a) (eString b))]) n `evalsTo` eString (a <> b)
+  project_ (record_ [(n, concat_ (string_ a) (string_ b))]) n `evalsTo` string_ (a <> b)
 
 prop_recordEqWidth :: Property
 prop_recordEqWidth = property $ do
   names <- forAll genFieldNames
   extra <- forAll (Gen.filter (`notElem` names) genIdent)
-  let fields = [(n, eString (Ident.toText n)) | n <- names]
+  let fields = [(n, string_ (Ident.toText n)) | n <- names]
   let narrow = record_ fields :: Term Sig Ident
-  let wide = record_ (fields <> [(extra, eString "extra")])
+  let wide = record_ (fields <> [(extra, string_ "extra")])
   assert (not (eqTerm narrow wide))
 
 prop_renderRecord :: Property
 prop_renderRecord = withTests 1 . property $
-  renderTop (project_ (record_ [("a", eString "x"), ("b", eString "y")]) "b")
+  renderTop (project_ (record_ [("a", string_ "x"), ("b", string_ "y")]) "b")
     === "{a = \"x\", b = \"y\"}.b"
 
 prop_renderRecordTy :: Property

@@ -11,15 +11,17 @@ module Docent.Syntax.Universal
 where
 
 import Bound
+import Data.Set qualified as Set
 import Docent.Algebra
 import Docent.FreeVars
 import Docent.Ident (Ident)
 import Docent.Sum
 import Docent.Type
 import Docent.Typecheck
+import Docent.Util
+import Optics (makePrisms)
 import Prettyprinter (pretty, (<+>))
 import Prettyprinter qualified as P
-import Optics (makePrisms)
 
 data UniF t a
   = TyLam Ident (t a) -- Λα. e; α is a named type variable scoping over e's annotations
@@ -54,6 +56,10 @@ instance PrettyAlg UniF where
 instance FreeVarsAlg UniF where
   freeVarsAlg (TyLam _ e) = freeVars e
   freeVarsAlg (TyApp e _ty) = freeVars e
+
+instance FreeTyVarsAlg UniF where
+  freeTyVarsAlg (TyLam name body) = Set.delete name (freeTyVars body)
+  freeTyVarsAlg (TyApp fn arg) = freeTyVars fn <> setFromList arg
 
 tyLam :: (UniF :<: s) => Ident -> Term s a -> Term s a
 tyLam n e = inject (TyLam n e)
